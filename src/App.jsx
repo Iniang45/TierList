@@ -65,15 +65,6 @@ export default function App() {
       return;
     }
 
-    async function loadMyTierlists() {
-      try {
-        const payload = await communityApi.myTierlists(token);
-        setMyTierlists(payload.tierlists || []);
-      } catch {
-        setMyTierlists([]);
-      }
-    }
-
     loadMyTierlists();
   }, [isAuthed, token]);
 
@@ -130,6 +121,22 @@ export default function App() {
     setMyTierlists([]);
     setPublicProfileId(null);
     setPage("home");
+  }
+
+  async function loadMyTierlists() {
+    if (!token) return;
+    try {
+      const payload = await communityApi.myTierlists(token);
+      setMyTierlists(payload.tierlists || []);
+    } catch {
+      setMyTierlists([]);
+    }
+  }
+
+  async function handleSaveTierlist() {
+    setTierlistToEdit(null);
+    await loadMyTierlists();
+    setPage("gallery");
   }
 
   async function updateProfile(patch) {
@@ -348,11 +355,9 @@ export default function App() {
 
       {page === "create" && isAuthed && (
         <CreateTierList
+          token={token}
           initialData={tierlistToEdit}
-          onSave={() => {
-            setTierlistToEdit(null);
-            setPage("gallery");
-          }}
+          onSave={handleSaveTierlist}
           onCancel={() => {
             setTierlistToEdit(null);
             setPage("gallery");

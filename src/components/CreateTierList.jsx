@@ -5,6 +5,7 @@ import {
   saveTierlistRecord,
   uid,
 } from "../utils/tierlists";
+import { communityApi } from "../services/communityApi";
 
 function normalizeImages(initialData) {
   const source =
@@ -31,7 +32,12 @@ function readImageFile(file, onLoad) {
   reader.readAsDataURL(file);
 }
 
-export default function CreateTierList({ initialData, onSave, onCancel }) {
+export default function CreateTierList({
+  token,
+  initialData,
+  onSave,
+  onCancel,
+}) {
   const isEditing = Boolean(initialData);
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(
@@ -46,6 +52,8 @@ export default function CreateTierList({ initialData, onSave, onCancel }) {
   );
   const [images, setImages] = useState(normalizeImages(initialData));
   const [editingImage, setEditingImage] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     setName(initialData?.name || "");
@@ -142,54 +150,111 @@ export default function CreateTierList({ initialData, onSave, onCancel }) {
   }
 
   async function saveTemplate() {
-    const optimizedImages = await Promise.all(
-      images.map(async (image) => ({
-        ...image,
-        src: await optimizeImageDataUrl(image.src),
-      })),
-    );
-
-    const optimizedCoverImage = coverImage
-      ? {
-          ...coverImage,
-          src: await optimizeImageDataUrl(coverImage.src, {
-            maxWidth: 1600,
-            maxHeight: 900,
-            quality: 0.8,
-          }),
-        }
-      : null;
-
-    const template = {
-      id: initialData?.id || uid(),
-      type: "template",
-      templateId: initialData?.templateId || null,
+    setError(null);
+    setIsSaving(true);
+    console.log("🔄 Démarrage sauvegarde...", {
+      token: !!token,
+      isEditing,
       name,
-      description,
-      coverImage: optimizedCoverImage,
-      visibility,
-      tiers,
-      images: optimizedImages,
-      items: optimizedImages.map((image) => ({
-        ...image,
-        explanation: image.explanation || "",
-        tierId: null,
-      })),
-      created: initialData?.created || Date.now(),
-    };
+    });
 
-    saveTierlistRecord(template);
+    try {
+      const optimizedImages = await Promise.all(
+        images.map(async (image) => ({
+          ...image,
+          src: await optimizeImageDataUrl(image.src),
+        })),
+      );
 
-    if (onSave) {
-      onSave(template);
-      return;
+      const optimizedCoverImage = coverImage
+        ? {
+            ...coverImage,
+            src: await optimizeImageDataUrl(coverImage.src, {
+              maxWidth: 1600,
+              maxHeight: 900,
+              quality: 0.8,
+            }),
+          }
+        : null;
+
+      const templateData = {
+        type: "template",
+        name,
+        description,
+        coverImage: optimizedCoverImage,
+        visibility,
+        tiers,
+        images: optimizedImages,
+        items: optimizedImages.map((image) => ({
+          ...image,
+          explanation: image.explanation || "",
+          tierId: null,
+        })),
+      };
+
+      console.log("📦 Données préparées:", templateData);
+
+      // Save to server if authenticated
+      if (token) {
+        console.log("🌐 Envoi au serveur avec token...");
+        if (isEditing && initialData?.id) {
+          // Update existing tierlist
+          console.log("✏️ Mise à jour tierlist:", initialData.id);
+          const response = await communityApi.updateTierlist(
+            token,
+            initialData.id,
+            templateData,
+          );
+          const template = {
+            ...response.tierlist,
+            created: initialData.created,
+          };
+          saveTierlistRecord(template);
+          setIsSaving(false);
+          console.log("✅ Tierlist mise à jour avec succès");
+          if (onSave) {
+            onSave(template);
+          }
+        } else {
+          // Create new tierlist
+          console.log("➕ Création nouvelle tierlist...");
+          const response = await communityApi.createTierlist(
+            token,
+            templateData,
+          );
+          console.log("✅ Tierlist créée avec succès:", response.tierlist);
+          const template = response.tierlist;
+          saveTierlistRecord(template);
+          setIsSaving(false);
+          if (onSave) {
+            onSave(template);
+          }
+        }
+      } else {
+        console.log("⚠️ Pas de token, sauvegarde locale uniquement");
+        // Fallback: save locally only
+        const template = {
+          id: initialData?.id || uid(),
+          ...templateData,
+          created: initialData?.created || Date.now(),
+        };
+        saveTierlistRecord(template);
+        setIsSaving(false);
+        if (onSave) {
+          onSave(template);
+          return;
+        }
+        setName("");
+        setDescription("");
+        setCoverImage(null);
+        setTiers(createDefaultTiers());
+        setImages([]);
+      }
+    } catch (err) {
+      console.error("❌ Erreur sauvegarde:", err);
+      setError(err.message || "Erreur lors de la sauvegarde");
+      setIsSaving(false);
     }
-
-    setName("");
-    setDescription("");
-    setCoverImage(null);
-    setTiers(createDefaultTiers());
-    setImages([]);
   }
 
   return (
@@ -385,24 +450,55 @@ export default function CreateTierList({ initialData, onSave, onCancel }) {
 
               <div
                 className="create-actions"
-                style={{ display: "flex", gap: 12, marginTop: 20 }}
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  marginTop: 20,
+                  flexDirection: "column",
+                }}
               >
-                {onCancel && (
-                  <button
-                    className="btn"
-                    onClick={onCancel}
-                    style={{ flex: 1, padding: 12 }}
+                {error && (
+                  <div
+                    style={{
+                      padding: 12,
+                      background: "#fee2e2",
+                      color: "#991b1b",
+                      borderRadius: 8,
+                      fontSize: 14,
+                    }}
                   >
-                    Annuler
-                  </button>
+                    {error}
+                  </div>
                 )}
-                <button
-                  className="btn primary"
-                  onClick={saveTemplate}
-                  style={{ flex: 2, padding: 12, fontWeight: 600 }}
-                >
-                  {isEditing ? "Enregistrer" : "Créer et Sauvegarder"}
-                </button>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {onCancel && (
+                    <button
+                      className="btn"
+                      onClick={onCancel}
+                      disabled={isSaving}
+                      style={{ flex: 1, padding: 12 }}
+                    >
+                      Annuler
+                    </button>
+                  )}
+                  <button
+                    className="btn primary"
+                    onClick={saveTemplate}
+                    disabled={isSaving}
+                    style={{
+                      flex: 2,
+                      padding: 12,
+                      fontWeight: 600,
+                      opacity: isSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {isSaving
+                      ? "Sauvegarde..."
+                      : isEditing
+                        ? "Enregistrer"
+                        : "Créer et Sauvegarder"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
