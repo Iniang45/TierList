@@ -3,13 +3,24 @@ import html2canvas from "html2canvas";
 import {
   contrastTextColor,
   createDefaultTiers,
-  saveTierlistRecord,
+  saveTemporaryTierlist,
   uid,
-} from "../utils/tierlists";
+} from "../../utils/tierlists";
+import { communityApi } from "../../services/communityApi";
+import "./RankTierList.css";
 
-export default function RankTierList({ template, initialData, onBack }) {
+export default function RankTierList({
+  token,
+  template,
+  initialData,
+  onBack,
+  onSave,
+  readOnly = false,
+}) {
   const [ranking, setRanking] = useState(null);
   const [expandedItem, setExpandedItem] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -22,7 +33,9 @@ export default function RankTierList({ template, initialData, onBack }) {
           ? sourceRecord.items
           : Array.isArray(sourceRecord.images)
             ? sourceRecord.images
-            : [];
+            : Array.isArray(sourceRecord.assets)
+              ? sourceRecord.assets
+              : [];
 
       const ranked =
         sourceRecord.type === "ranking"
@@ -54,6 +67,8 @@ export default function RankTierList({ template, initialData, onBack }) {
               templateId: sourceRecord.id,
               name: sourceRecord.name,
               description: sourceRecord.description,
+              visibility: sourceRecord.visibility || "private",
+              originalTierlistId: sourceRecord.id,
               tiers: sourceRecord.tiers?.length
                 ? sourceRecord.tiers
                 : createDefaultTiers(),
@@ -132,67 +147,75 @@ export default function RankTierList({ template, initialData, onBack }) {
     }
   }
 
-  function saveRanking() {
-    saveTierlistRecord(ranking);
+  async function saveRanking() {
+    setSaving(true);
+    setError("");
+    try {
+      let savedRanking = ranking;
+      if (token) {
+        const payload = await communityApi.createTierlist(token, {
+          ...ranking,
+          originalTierlistId: ranking.templateId,
+        });
+        savedRanking = payload.tierlist;
+      }
+      if (!token) {
+        saveTemporaryTierlist(savedRanking);
+      }
+      setSaving(false);
+      onSave?.(savedRanking);
+    } catch (err) {
+      setError(err.message || "Impossible de sauvegarder ce classement");
+      setSaving(false);
+    }
   }
 
   if (!ranking) return <div>Chargement...</div>;
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
-      >
+    <div className="rank-page">
+      <div className="rank-header">
         <div>
           <h2>{ranking.name}</h2>
           {ranking.description && (
-            <p className="small" style={{ margin: "8px 0 0 0" }}>
-              {ranking.description}
-            </p>
+            <p className="small rank-description">{ranking.description}</p>
           )}
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div className="rank-actions">
           <button className="btn" onClick={onBack}>
             Retour
           </button>
           <button className="btn secondary" onClick={downloadAsImage}>
             Télécharger en PNG
           </button>
-          <button className="btn primary" onClick={saveRanking}>
-            Sauvegarder
-          </button>
+          {!readOnly && (
+            <button
+              className="btn primary"
+              onClick={saveRanking}
+              disabled={saving}
+            >
+              {saving ? "Sauvegarde..." : "Sauvegarder"}
+            </button>
+          )}
         </div>
       </div>
+      {error && <div className="auth-error rank-error">{error}</div>}
 
       <div className="layout">
         <div className="editor">
-          <div
-            ref={containerRef}
-            style={{
-              background: "var(--card)",
-              borderRadius: 16,
-              padding: 20,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            }}
-          >
+          <div ref={containerRef} className="rank-board">
             {ranking.tiers.map((tier) => (
               <div
                 key={tier.id}
-                className="tier"
+                className="tier tier-spacing"
                 onDragOver={onDragOver}
                 onDrop={(ev) => onDropToTier(ev, tier.id)}
-                style={{ marginBottom: 16 }}
               >
                 <div
                   className="tier-label"
                   style={{
-                    background: tier.color,
-                    color: contrastTextColor(tier.color),
+                    "--tier-color": tier.color,
+                    "--tier-text-color": contrastTextColor(tier.color),
                   }}
                 >
                   {tier.name}
@@ -203,7 +226,7 @@ export default function RankTierList({ template, initialData, onBack }) {
                     .map((item) => (
                       <div
                         key={item.id}
-                        draggable
+                        draggable={!readOnly}
                         onDragStart={(ev) => onDragStart(ev, item.id)}
                         onClick={() => setExpandedItem(item.id)}
                       >
@@ -222,7 +245,7 @@ export default function RankTierList({ template, initialData, onBack }) {
             {/* Unranked items */}
             {ranking.items.some((it) => !it.tierId) && (
               <div
-                className="tier"
+                className="tier unranked-tier"
                 data-unranked="true"
                 onDragOver={onDragOver}
                 onDrop={(ev) => {
@@ -235,21 +258,15 @@ export default function RankTierList({ template, initialData, onBack }) {
                     ),
                   }));
                 }}
-                style={{ marginTop: 16, opacity: 0.6, borderStyle: "dashed" }}
               >
-                <div
-                  className="tier-label"
-                  style={{ background: "#e5e7eb", color: "#111827" }}
-                >
-                  À ranger
-                </div>
+                <div className="tier-label unranked-label">À ranger</div>
                 <div className="cards">
                   {ranking.items
                     .filter((it) => !it.tierId)
                     .map((item) => (
                       <div
                         key={item.id}
-                        draggable
+                        draggable={!readOnly}
                         onDragStart={(ev) => onDragStart(ev, item.id)}
                         onClick={() => setExpandedItem(item.id)}
                       >
@@ -270,7 +287,7 @@ export default function RankTierList({ template, initialData, onBack }) {
         {/* Side panel */}
         <div className="side">
           <div className="side-panel">
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>Détails</div>
+            <div className="details-title">Détails</div>
 
             {expandedItem ? (
               <>
@@ -281,48 +298,35 @@ export default function RankTierList({ template, initialData, onBack }) {
                       <img
                         src={item.src}
                         alt={item.text}
-                        style={{
-                          width: "100%",
-                          height: 150,
-                          objectFit: "cover",
-                          borderRadius: 10,
-                          marginBottom: 12,
-                        }}
+                        className="details-image"
                       />
                       {item.text && (
-                        <div style={{ marginBottom: 12 }}>
-                          <div className="small" style={{ marginBottom: 4 }}>
-                            Titre
-                          </div>
-                          <div style={{ fontWeight: 500 }}>{item.text}</div>
+                        <div className="details-block">
+                          <div className="small details-label">Titre</div>
+                          <div className="details-value">{item.text}</div>
                         </div>
                       )}
-                      <div className="input-group">
-                        <label>Pourquoi ce placement ?</label>
-                        <textarea
-                          value={item.explanation}
-                          onChange={(e) =>
-                            updateItemExplanation(item.id, e.target.value)
-                          }
-                          placeholder="Ajoutez votre justification..."
-                          style={{
-                            width: "100%",
-                            padding: 10,
-                            border: "2px solid var(--border)",
-                            borderRadius: 10,
-                            fontSize: 13,
-                            minHeight: 100,
-                            fontFamily: "inherit",
-                          }}
-                        />
-                      </div>
-                      <button
-                        className="btn"
-                        onClick={() => setExpandedItem(null)}
-                        style={{ width: "100%" }}
-                      >
-                        Fermer
-                      </button>
+                      {!readOnly && (
+                        <div className="input-group">
+                          <label>Pourquoi ce placement ?</label>
+                          <textarea
+                            value={item.explanation}
+                            onChange={(e) =>
+                              updateItemExplanation(item.id, e.target.value)
+                            }
+                            placeholder="Ajoutez votre justification..."
+                            className="details-textarea"
+                          />
+                        </div>
+                      )}
+                      {!readOnly && (
+                        <button
+                          className="btn details-close"
+                          onClick={() => setExpandedItem(null)}
+                        >
+                          Fermer
+                        </button>
+                      )}
                     </div>
                   ) : null;
                 })()}

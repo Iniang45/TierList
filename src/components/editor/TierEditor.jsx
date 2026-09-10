@@ -6,7 +6,8 @@ import {
   createDefaultTiers,
   saveTierlistRecord,
   uid,
-} from "../utils/tierlists";
+} from "../../utils/tierlists";
+import "./TierEditor.css";
 
 function buildItems(sourceItems = [], sourceImages = []) {
   const base = sourceItems.length > 0 ? sourceItems : sourceImages;
@@ -186,18 +187,11 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
   return (
     <div className="layout">
       <div className="editor">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="tier-editor-toolbar">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            style={{ padding: 8, borderRadius: 8, minWidth: 240 }}
+            className="tier-editor-name"
           />
           {onCancel && (
             <button className="btn" onClick={onCancel}>
@@ -210,13 +204,13 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
           <button className="btn" onClick={exportJSON}>
             Exporter JSON
           </button>
-          <label className="btn" style={{ display: "inline-block" }}>
+          <label className="btn file-button">
             Importer JSON
             <input
               type="file"
               accept="application/json"
               onChange={importJSON}
-              style={{ display: "none" }}
+              className="visually-hidden"
             />
           </label>
           <button className="btn" onClick={downloadImage}>
@@ -224,12 +218,9 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
           </button>
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div
-              ref={containerRef}
-              style={{ padding: 12, background: "transparent" }}
-            >
+        <div className="tier-editor-layout">
+          <div className="tier-editor-main">
+            <div ref={containerRef} className="tier-editor-board">
               {items.some(
                 (item) => item.tierId === null || item.tierId === undefined,
               ) && (
@@ -237,15 +228,11 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
                   className="tier"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={onDropToUnranked}
-                  style={{
-                    marginBottom: 10,
-                    opacity: 0.7,
-                    borderStyle: "dashed",
-                  }}
+                  className="tier unranked-tier legacy-unranked"
                 >
                   <div
                     className="tier-label"
-                    style={{ background: "#cbd5e1", color: "#0f172a" }}
+                    className="tier-label legacy-unranked-label"
                   >
                     À classer
                   </div>
@@ -277,13 +264,13 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
                   className="tier"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => onDropToTier(e, t.id)}
-                  style={{ marginBottom: 10 }}
+                  className="tier tier-spacing-small"
                 >
                   <div
                     className="title"
                     style={{
-                      background: t.color,
-                      color: contrastTextColor(t.color),
+                      "--tier-color": t.color,
+                      "--tier-text-color": contrastTextColor(t.color),
                     }}
                   >
                     {t.name}
@@ -316,12 +303,7 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  style={{
-                    width: "100%",
-                    minHeight: 90,
-                    padding: 10,
-                    borderRadius: 8,
-                  }}
+                  className="tier-description"
                 />
               </div>
 
@@ -339,15 +321,7 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
                 <div className="small">Tiers</div>
                 <div className="tiers">
                   {tiers.map((t) => (
-                    <div
-                      key={t.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 120px",
-                        gap: 8,
-                        alignItems: "center",
-                      }}
-                    >
+                    <div key={t.id} className="tier-settings-row">
                       <input
                         value={t.name}
                         onChange={(e) => updateTierName(t.id, e.target.value)}
@@ -356,14 +330,7 @@ export default function TierEditor({ initialData, onSave, onCancel }) {
                         type="color"
                         value={t.color || "#64748b"}
                         onChange={(e) => updateTierColor(t.id, e.target.value)}
-                        style={{
-                          width: "100%",
-                          height: 40,
-                          border: "2px solid var(--border)",
-                          borderRadius: 8,
-                          padding: 4,
-                          background: "var(--card)",
-                        }}
+                        className="tier-color-input"
                       />
                     </div>
                   ))}

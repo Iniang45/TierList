@@ -1,0 +1,10 @@
+.gallery-page {
+  margin-top: 20px;
+}
+.empty-gallery {
+  padding: 32px;
+  text-align: center;
+  background: var(--card);
+  border-radius: 16px;
+  border: 2px dashed var(--border);
+}

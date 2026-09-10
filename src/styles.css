@@ -35,36 +35,6 @@ body {
   color: var(--text);
 }
 
-.app {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
-  min-height: 100vh;
-}
-
-.header {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--border);
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 28px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.nav {
-  display: flex;
-  gap: 12px;
-}
-
 .btn {
   background: var(--card);
   border: 2px solid var(--border);
@@ -117,12 +87,6 @@ body {
   box-shadow: 0 6px 16px rgba(236, 72, 153, 0.4);
 }
 
-.hero-panel,
-.auth-card,
-.profile-shell,
-.profile-form,
-.profile-search,
-.profile-friends,
 .gallery-section,
 .side-panel,
 .tier-list-container {
@@ -132,24 +96,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.hero-panel {
-  padding: 20px;
-}
-
-.hero-card {
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.account-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.account-chip img,
 .profile-avatar {
   width: 32px;
   height: 32px;
@@ -157,71 +103,12 @@ body {
   object-fit: cover;
 }
 
-.auth-screen {
-  min-height: calc(100vh - 160px);
-  display: grid;
-  place-items: center;
-  padding: 24px 0 36px;
-}
-
-.auth-card {
-  width: min(100%, 460px);
-  padding: 24px;
-}
-
-.auth-header h2 {
-  margin: 0 0 8px;
-}
-
-.auth-tabs {
-  display: flex;
-  gap: 10px;
-  margin: 18px 0;
-}
-
-.auth-tabs .btn {
-  flex: 1 1 0;
-}
-
-.auth-form {
-  display: grid;
-  gap: 14px;
-}
-
-.auth-form label,
 .input-group span {
   display: block;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   margin-bottom: 6px;
-}
-
-.auth-form input,
-.auth-form textarea,
-.profile-form input,
-.profile-form textarea,
-.profile-form select,
-.profile-search input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 14px;
-  background: var(--card);
-}
-
-.auth-error {
-  padding: 12px;
-  border-radius: 10px;
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.18);
-}
-
-.profile-shell {
-  padding: 16px;
 }
 
 .profile-header {
@@ -240,35 +127,6 @@ body {
   height: 72px;
 }
 
-.profile-form,
-.profile-search,
-.profile-friends {
-  padding: 16px;
-  margin-top: 16px;
-}
-
-.profile-form {
-  display: grid;
-  gap: 14px;
-}
-
-.profile-search-results {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.profile-search-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #f8fafc;
-}
-
 .profile-user-link,
 .gallery-owner-link {
   border: 0;
@@ -279,20 +137,6 @@ body {
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-}
-
-.profile-friends {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.profile-friend-chip {
-  border: 1px solid var(--border);
-  background: #f8fafc;
-  padding: 10px 12px;
-  border-radius: 999px;
-  cursor: pointer;
 }
 
 .visibility-badge {
@@ -348,29 +192,10 @@ body {
   min-width: 0;
 }
 
-.tier-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 96px;
-  gap: 8px;
-  align-items: center;
-}
-
 .create-actions {
   display: flex;
   gap: 12px;
   margin-top: 20px;
-}
-
-.image-dropzone {
-  width: 100%;
-}
-
-.image-list {
-  max-height: 600px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .editor {

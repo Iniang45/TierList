@@ -1,0 +1,74 @@
+.rank-page {
+  margin-top: 20px;
+}
+.rank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.rank-description {
+  margin: 8px 0 0;
+}
+.rank-actions {
+  display: flex;
+  gap: 12px;
+}
+.rank-error {
+  margin-bottom: 16px;
+}
+.rank-board {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.tier-spacing {
+  margin-bottom: 16px;
+}
+.tier-label {
+  background: var(--tier-color);
+  color: var(--tier-text-color);
+}
+.unranked-tier {
+  margin-top: 16px;
+  opacity: 0.6;
+  border-style: dashed;
+}
+.unranked-label {
+  background: #e5e7eb;
+  color: #111827;
+}
+.details-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.details-image {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.details-block {
+  margin-bottom: 12px;
+}
+.details-label {
+  margin-bottom: 4px;
+}
+.details-value {
+  font-weight: 500;
+}
+.details-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  min-height: 100px;
+  font-family: inherit;
+}
+.details-close {
+  width: 100%;
+}

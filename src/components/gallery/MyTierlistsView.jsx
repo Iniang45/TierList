@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import TierlistCard from "./TierlistCard";
+import "./MyTierlistsView.css";
 
 export default function MyTierlistsView({
   tierlists,
   onEdit,
   onRank,
+  onView,
   onDelete,
   onOpenProfile,
 }) {
@@ -44,6 +46,7 @@ export default function MyTierlistsView({
                 }
                 onEdit={onEdit}
                 onRank={onRank}
+                onView={onView}
                 onDelete={onDelete}
                 onOpenProfile={onOpenProfile}
                 showActions
@@ -80,10 +83,12 @@ export default function MyTierlistsView({
                 }
                 onEdit={onEdit}
                 onRank={onRank}
+                onView={onView}
                 onDelete={onDelete}
                 onOpenProfile={onOpenProfile}
                 showActions
                 showEdit
+                showView
                 showDelete
               />
             ))

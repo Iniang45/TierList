@@ -1,5 +1,6 @@
 const STORAGE_KEY = "tierlists";
 const RANKED_STORAGE_KEY = "ranked_tierlists";
+const TEMP_STORAGE_KEY = "guest_tierlists";
 
 const DEFAULT_TIER_COLORS = [
   "#ef4444",
@@ -183,6 +184,14 @@ function writeList(key, list) {
   localStorage.setItem(key, JSON.stringify(list));
 }
 
+function readTemporaryList() {
+  return JSON.parse(sessionStorage.getItem(TEMP_STORAGE_KEY) || "[]");
+}
+
+function writeTemporaryList(list) {
+  sessionStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(list));
+}
+
 function writeListSafely(key, list) {
   try {
     writeList(key, list);
@@ -236,6 +245,37 @@ export function loadSavedTierlists() {
   return Array.from(merged.values()).sort(
     (left, right) =>
       (right.updated || right.created) - (left.updated || left.created),
+  );
+}
+
+export function loadTemporaryTierlists() {
+  return readTemporaryList()
+    .map(normalizeTierlist)
+    .sort(
+      (left, right) =>
+        (right.updated || right.created) - (left.updated || left.created),
+    );
+}
+
+export function saveTemporaryTierlist(record) {
+  const normalized = normalizeTierlist({ ...record, updated: Date.now() });
+  const list = readTemporaryList().map(normalizeTierlist);
+  const index = list.findIndex((item) => item.id === normalized.id);
+
+  if (index >= 0) {
+    list[index] = normalized;
+  } else {
+    list.push(normalized);
+  }
+  writeTemporaryList(list);
+  return normalized;
+}
+
+export function deleteTemporaryTierlist(id) {
+  writeTemporaryList(
+    readTemporaryList()
+      .map(normalizeTierlist)
+      .filter((item) => item.id !== id),
   );
 }
 

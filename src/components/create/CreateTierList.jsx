@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import {
   createDefaultTiers,
   optimizeImageDataUrl,
-  saveTierlistRecord,
+  saveTemporaryTierlist,
   uid,
-} from "../utils/tierlists";
-import { communityApi } from "../services/communityApi";
+} from "../../utils/tierlists";
+import { communityApi } from "../../services/communityApi";
+import "./CreateTierList.css";
 
 function normalizeImages(initialData) {
   const source =
@@ -209,7 +210,6 @@ export default function CreateTierList({
             ...response.tierlist,
             created: initialData.created,
           };
-          saveTierlistRecord(template);
           setIsSaving(false);
           console.log("✅ Tierlist mise à jour avec succès");
           if (onSave) {
@@ -224,21 +224,19 @@ export default function CreateTierList({
           );
           console.log("✅ Tierlist créée avec succès:", response.tierlist);
           const template = response.tierlist;
-          saveTierlistRecord(template);
           setIsSaving(false);
           if (onSave) {
             onSave(template);
           }
         }
       } else {
-        console.log("⚠️ Pas de token, sauvegarde locale uniquement");
-        // Fallback: save locally only
+        console.log("⚠️ Invité : sauvegarde temporaire dans l'onglet");
         const template = {
           id: initialData?.id || uid(),
           ...templateData,
           created: initialData?.created || Date.now(),
         };
-        saveTierlistRecord(template);
+        saveTemporaryTierlist(template);
         setIsSaving(false);
         if (onSave) {
           onSave(template);
@@ -260,45 +258,25 @@ export default function CreateTierList({
   return (
     <div className="layout">
       <div className="editor">
-        <div style={{ marginBottom: 24 }}>
+        <div className="editor-heading">
           <h2>{isEditing ? "Modifier une TierList" : "Créer une TierList"}</h2>
         </div>
 
         <div className="create-layout">
           <div className="create-main">
-            <div
-              style={{
-                background: "var(--card)",
-                borderRadius: 16,
-                padding: 20,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              }}
-            >
-              <div style={{ marginBottom: 12 }}>
+            <div className="editor-card">
+              <div className="form-section form-section-spaced">
                 <div className="small">Image de la TierList</div>
                 <div
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={handleCoverDrop}
-                  style={{
-                    marginTop: 6,
-                    padding: 12,
-                    border: "2px dashed var(--border)",
-                    borderRadius: 12,
-                    background: "#f8fafc",
-                    display: "grid",
-                    gap: 10,
-                  }}
+                  className="cover-dropzone"
                 >
                   {coverImage?.src ? (
                     <img
                       src={coverImage.src}
                       alt={coverImage.alt || name || "TierList"}
-                      style={{
-                        width: "100%",
-                        height: 180,
-                        objectFit: "cover",
-                        borderRadius: 10,
-                      }}
+                      className="cover-preview"
                     />
                   ) : (
                     <div className="small">
@@ -306,36 +284,26 @@ export default function CreateTierList({
                       ci-dessous.
                     </div>
                   )}
-                  <label
-                    className="btn"
-                    style={{ display: "inline-block", width: "fit-content" }}
-                  >
+                  <label className="btn file-button">
                     Choisir l'image
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleCoverFile}
-                      style={{ display: "none" }}
+                      className="visually-hidden"
                     />
                   </label>
                 </div>
               </div>
 
-              <div style={{ marginBottom: 12 }}>
+              <div className="form-section form-section-spaced">
                 <div className="small">Nom</div>
                 <input
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="ex: Animes 2024"
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "2px solid var(--border)",
-                    borderRadius: 10,
-                    fontSize: 14,
-                    marginTop: 6,
-                  }}
+                  className="editor-input"
                 />
               </div>
 
@@ -345,70 +313,34 @@ export default function CreateTierList({
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder="Contexte, règles, etc."
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "2px solid var(--border)",
-                    borderRadius: 10,
-                    fontSize: 14,
-                    marginTop: 6,
-                    minHeight: 80,
-                    fontFamily: "inherit",
-                  }}
+                  className="editor-textarea"
                 />
               </div>
 
-              <div style={{ marginTop: 12 }}>
+              <div className="form-section form-section-top">
                 <div className="small">Visibilité</div>
                 <select
                   value={visibility}
                   onChange={(event) => setVisibility(event.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "2px solid var(--border)",
-                    borderRadius: 10,
-                    fontSize: 14,
-                    marginTop: 6,
-                    background: "var(--card)",
-                  }}
+                  className="editor-input"
                 >
                   <option value="public">Public</option>
                   <option value="private">Privé</option>
                 </select>
               </div>
 
-              <div style={{ marginTop: 20 }}>
-                <div className="small" style={{ marginBottom: 12 }}>
-                  Tiers configurés
-                </div>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
+              <div className="tiers-section">
+                <div className="small section-label">Tiers configurés</div>
+                <div className="tier-editor-list">
                   {tiers.map((tier) => (
-                    <div
-                      className="tier-row"
-                      key={tier.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 120px 96px",
-                        gap: 8,
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="tier-editor-row" key={tier.id}>
                       <input
                         type="text"
                         value={tier.name}
                         onChange={(event) =>
                           updateTierName(tier.id, event.target.value)
                         }
-                        style={{
-                          flex: 1,
-                          padding: 8,
-                          border: "2px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 14,
-                        }}
+                        className="tier-editor-input"
                       />
                       <input
                         type="color"
@@ -416,20 +348,12 @@ export default function CreateTierList({
                         onChange={(event) =>
                           updateTierColor(tier.id, event.target.value)
                         }
-                        style={{
-                          width: "100%",
-                          height: 40,
-                          border: "2px solid var(--border)",
-                          borderRadius: 8,
-                          padding: 4,
-                          background: "var(--card)",
-                        }}
+                        className="tier-color-input"
                       />
                       {tiers.length > 1 ? (
                         <button
-                          className="btn"
+                          className="btn tier-delete-button"
                           onClick={() => removeTier(tier.id)}
-                          style={{ padding: 8 }}
                         >
                           Supprimer
                         </button>
@@ -439,58 +363,27 @@ export default function CreateTierList({
                     </div>
                   ))}
                 </div>
-                <button
-                  className="btn"
-                  onClick={addTier}
-                  style={{ marginTop: 12, width: "100%" }}
-                >
+                <button className="btn tier-add-button" onClick={addTier}>
                   Ajouter un rang
                 </button>
               </div>
 
-              <div
-                className="create-actions"
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  marginTop: 20,
-                  flexDirection: "column",
-                }}
-              >
-                {error && (
-                  <div
-                    style={{
-                      padding: 12,
-                      background: "#fee2e2",
-                      color: "#991b1b",
-                      borderRadius: 8,
-                      fontSize: 14,
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 12 }}>
+              <div className="create-actions save-actions">
+                {error && <div className="editor-error">{error}</div>}
+                <div className="save-buttons">
                   {onCancel && (
                     <button
-                      className="btn"
+                      className="btn save-cancel"
                       onClick={onCancel}
                       disabled={isSaving}
-                      style={{ flex: 1, padding: 12 }}
                     >
                       Annuler
                     </button>
                   )}
                   <button
-                    className="btn primary"
+                    className="btn primary save-submit"
                     onClick={saveTemplate}
                     disabled={isSaving}
-                    style={{
-                      flex: 2,
-                      padding: 12,
-                      fontWeight: 600,
-                      opacity: isSaving ? 0.6 : 1,
-                    }}
                   >
                     {isSaving
                       ? "Sauvegarde..."
@@ -505,102 +398,61 @@ export default function CreateTierList({
 
           <div className="create-side">
             <div className="side-panel">
-              <div
-                className="small"
-                style={{ marginBottom: 12, fontWeight: 600 }}
-              >
+              <div className="small image-list-title">
                 Images ({images.length})
               </div>
 
               <div
-                className="image-dropzone"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={handleImageDrop}
-                style={{
-                  padding: 12,
-                  border: "2px dashed var(--border)",
-                  borderRadius: 12,
-                  background: "#f8fafc",
-                  marginBottom: 12,
-                }}
+                className="image-dropzone create-image-dropzone"
               >
-                <div className="small" style={{ marginBottom: 10 }}>
+                <div className="small dropzone-copy">
                   Glissez-déposez des images ici ou utilisez le bouton.
                 </div>
-                <label className="btn" style={{ display: "inline-block" }}>
+                <label className="btn file-button">
                   Ajouter des images
                   <input
                     type="file"
                     multiple
                     accept="image/*"
                     onChange={handleImageFiles}
-                    style={{ display: "none" }}
+                    className="visually-hidden"
                   />
                 </label>
               </div>
 
-              <div
-                className="image-list"
-                style={{
-                  maxHeight: 600,
-                  overflowY: "auto",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
+              <div className="image-list">
                 {images.map((img) => (
                   <div
                     key={img.id}
-                    style={{
-                      padding: 10,
-                      background: "#f8fafc",
-                      borderRadius: 10,
-                      border: "1px solid var(--border)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
+                    className="image-list-item"
                     onClick={() => setEditingImage(img.id)}
                   >
                     <img
                       src={img.src}
                       alt={img.text}
-                      style={{
-                        width: "100%",
-                        height: 60,
-                        objectFit: "cover",
-                        borderRadius: 6,
-                        marginBottom: 6,
-                      }}
+                      className="image-list-preview"
                     />
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "var(--muted)",
-                        marginBottom: 6,
-                        fontWeight: 500,
-                      }}
-                    >
+                    <div className="image-list-caption">
                       {img.text ? `"${img.text}"` : "Sans description"}
                     </div>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div className="image-list-actions">
                       <button
-                        className="btn"
+                        className="btn image-edit-button"
                         onClick={(event) => {
                           event.stopPropagation();
                           setEditingImage(img.id);
                         }}
-                        style={{ flex: 1, padding: 6, fontSize: 12 }}
                       >
                         Éditer
                       </button>
                       <button
-                        className="btn"
+                        className="btn image-delete-button"
                         onClick={(event) => {
                           event.stopPropagation();
                           removeImage(img.id);
                         }}
-                        style={{ padding: 6, fontSize: 12 }}
                       >
                         Supprimer
                       </button>
@@ -612,24 +464,11 @@ export default function CreateTierList({
 
             {editingImage && (
               <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.5)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  zIndex: 1000,
-                }}
+                className="image-modal-backdrop"
                 onClick={() => setEditingImage(null)}
               >
                 <div
-                  style={{
-                    background: "var(--card)",
-                    borderRadius: 16,
-                    padding: 20,
-                    maxWidth: 400,
-                  }}
+                  className="image-modal"
                   onClick={(event) => event.stopPropagation()}
                 >
                   <h3>Éditer image</h3>
@@ -648,9 +487,8 @@ export default function CreateTierList({
                     />
                   </div>
                   <button
-                    className="btn primary"
                     onClick={() => setEditingImage(null)}
-                    style={{ width: "100%" }}
+                    className="btn primary image-modal-close"
                   >
                     Fermer
                   </button>

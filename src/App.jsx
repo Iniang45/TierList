@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import CreateTierList from "./components/CreateTierList";
-import RankTierList from "./components/RankTierList";
-import Gallery from "./components/Gallery";
-import AuthScreen from "./components/AuthScreen";
-import MyTierlistsView from "./components/MyTierlistsView";
-import CommunityFeed from "./components/CommunityFeed";
-import UserProfileView from "./components/UserProfileView";
+import CreateTierList from "./components/create/CreateTierList";
+import RankTierList from "./components/rank/RankTierList";
+import AuthScreen from "./components/auth/AuthScreen";
+import MyTierlistsView from "./components/gallery/MyTierlistsView";
+import CommunityFeed from "./components/community/CommunityFeed";
+import UserProfileView from "./components/profile/UserProfileView";
 import { communityApi } from "./services/communityApi";
+import {
+  deleteTemporaryTierlist,
+  loadTemporaryTierlists,
+} from "./utils/tierlists";
+import "./App.css";
 
 const TOKEN_KEY = "tierlist-studio-token";
 
@@ -17,8 +21,11 @@ export default function App() {
   const [me, setMe] = useState(null);
   const [page, setPage] = useState("home");
   const [templateToRank, setTemplateToRank] = useState(null);
+  const [rankReadOnly, setRankReadOnly] = useState(false);
   const [tierlistToEdit, setTierlistToEdit] = useState(null);
-  const [myTierlists, setMyTierlists] = useState([]);
+  const [myTierlists, setMyTierlists] = useState(() =>
+    localStorage.getItem(TOKEN_KEY) ? [] : loadTemporaryTierlists(),
+  );
   const [publicProfileId, setPublicProfileId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -27,12 +34,15 @@ export default function App() {
 
   const activeSection = page === "rank" ? "gallery" : page;
   const isAuthed = Boolean(token);
-  const friendIds = useMemo(() => new Set(me?.friends || []), [me]);
+  const friendIds = useMemo(
+    () => new Set((me?.friends || []).map((friend) => friend.id || friend)),
+    [me],
+  );
 
   useEffect(() => {
     if (!token) {
       setMe(null);
-      setMyTierlists([]);
+      setMyTierlists(loadTemporaryTierlists());
       return;
     }
 
@@ -118,13 +128,16 @@ export default function App() {
     localStorage.removeItem(TOKEN_KEY);
     setToken("");
     setMe(null);
-    setMyTierlists([]);
+    setMyTierlists(loadTemporaryTierlists());
     setPublicProfileId(null);
     setPage("home");
   }
 
   async function loadMyTierlists() {
-    if (!token) return;
+    if (!token) {
+      setMyTierlists(loadTemporaryTierlists());
+      return;
+    }
     try {
       const payload = await communityApi.myTierlists(token);
       setMyTierlists(payload.tierlists || []);
@@ -177,8 +190,16 @@ export default function App() {
   }
 
   function openRankWith(template) {
+    setRankReadOnly(false);
     setTierlistToEdit(null);
     setTemplateToRank(template);
+    setPage("rank");
+  }
+
+  function openViewWith(tierlist) {
+    setTierlistToEdit(null);
+    setTemplateToRank(tierlist);
+    setRankReadOnly(true);
     setPage("rank");
   }
 
@@ -239,15 +260,6 @@ export default function App() {
               Communauté
             </button>
             <button
-              className={`btn ${activeSection === "profile" ? "active" : ""}`}
-              onClick={() => {
-                setPublicProfileId(null);
-                setPage("profile");
-              }}
-            >
-              Profil
-            </button>
-            <button
               className="btn"
               onClick={() => {
                 setPublicProfileId(me?.id || null);
@@ -277,6 +289,12 @@ export default function App() {
             <button className="btn" onClick={() => setPage("auth")}>
               Se connecter
             </button>
+            <button
+              className={`btn ${activeSection === "community" ? "active" : ""}`}
+              onClick={() => setPage("community")}
+            >
+              Communauté
+            </button>
           </div>
         )}
       </div>
@@ -286,19 +304,34 @@ export default function App() {
       )}
 
       {page === "home" && !isAuthed && (
-        <div style={{ marginTop: 32 }}>
+        <div className="home-page">
           <div className="hero-panel">
-            <h2>Publiez vos tierlists et explorez celles de la communauté</h2>
-            <p className="small" style={{ fontSize: 15, lineHeight: 1.6 }}>
-              Connectez-vous avec un id et un mot de passe pour gérer votre
-              profil, vos amis et vos tierlists publiques.
+            <h2>Créez et rangez vos tierlists immédiatement</h2>
+            <p className="small hero-copy">
+              Commencez sans compte. Vos listes sont conservées dans ce
+              navigateur. Connectez-vous seulement pour les partager avec la
+              communauté et retrouver vos données sur ce serveur.
             </p>
-            <div className="create-actions" style={{ marginTop: 20 }}>
-              <button className="btn primary" onClick={() => setPage("auth")}>
-                Se connecter
+            <div className="create-actions home-actions">
+              <button
+                className="btn primary"
+                onClick={() => {
+                  setTierlistToEdit(null);
+                  setTemplateToRank(null);
+                  setRankReadOnly(false);
+                  setPage("create");
+                }}
+              >
+                Créer une tierlist
               </button>
-              <button className="btn" onClick={() => setPage("auth")}>
-                Créer un compte
+              <button
+                className="btn secondary"
+                onClick={() => setPage("gallery")}
+              >
+                Voir mes tierlists
+              </button>
+              <button className="btn primary" onClick={() => setPage("auth")}>
+                Rejoindre la communauté
               </button>
             </div>
           </div>
@@ -306,44 +339,38 @@ export default function App() {
       )}
 
       {page === "home" && isAuthed && (
-        <div style={{ marginTop: 32 }}>
-          <div className="hero-panel" style={{ maxWidth: 760 }}>
+        <div className="home-page">
+          <div className="hero-panel home-panel-auth">
             <h2>
               Bienvenue {me?.displayName || me?.userId || "sur TierList Studio"}
             </h2>
-            <p className="small" style={{ fontSize: 15, lineHeight: 1.6 }}>
+            <p className="small hero-copy">
               Créez, publiez et explorez des tierlists. Votre compte donne accès
               au profil, aux amis et au flux public.
             </p>
-            <div style={{ marginTop: 20, display: "grid", gap: 16 }}>
+            <div className="home-cards">
               <div className="hero-card">
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  1. Créer une TierList
-                </div>
+                <div className="home-card-title">1. Créer une TierList</div>
                 <div className="small">
                   Définissez les tiers, ajoutez des images et préparez une base
                   publiable.
                 </div>
                 <button
-                  className="btn primary"
                   onClick={() => setPage("create")}
-                  style={{ marginTop: 12 }}
+                  className="btn primary home-card-action"
                 >
                   Créer maintenant
                 </button>
               </div>
               <div className="hero-card">
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  2. Ranger / Compléter
-                </div>
+                <div className="home-card-title">2. Ranger / Compléter</div>
                 <div className="small">
                   Chargez une tierlist créée et rangez les éléments. Ajoutez des
                   explications à chaque placement.
                 </div>
                 <button
-                  className="btn secondary"
                   onClick={() => setPage("gallery")}
-                  style={{ marginTop: 12 }}
+                  className="btn secondary home-card-action"
                 >
                   Voir mes tierlists
                 </button>
@@ -353,7 +380,7 @@ export default function App() {
         </div>
       )}
 
-      {page === "create" && isAuthed && (
+      {page === "create" && (
         <CreateTierList
           token={token}
           initialData={tierlistToEdit}
@@ -365,46 +392,54 @@ export default function App() {
         />
       )}
 
-      {page === "rank" && isAuthed && (
+      {page === "rank" && (
         <RankTierList
+          token={token}
           template={templateToRank}
+          readOnly={rankReadOnly}
           initialData={
             templateToRank?.type === "ranking" ? templateToRank : null
           }
           onBack={() => setPage("gallery")}
+          onSave={handleSaveTierlist}
         />
       )}
 
-      {page === "gallery" && isAuthed && (
+      {page === "gallery" && (
         <MyTierlistsView
           tierlists={myTierlists}
           onRank={openRankWith}
+          onView={openViewWith}
           onEdit={openEditWith}
           onDelete={async (id) => {
-            await communityApi.deleteTierlist(token, id);
-            const payload = await communityApi.myTierlists(token);
-            setMyTierlists(payload.tierlists || []);
+            if (token) {
+              await communityApi.deleteTierlist(token, id);
+            }
+            deleteTemporaryTierlist(id);
+            setMyTierlists(loadTemporaryTierlists());
           }}
           onOpenProfile={openPublicProfile}
         />
       )}
 
-      {page === "community" && isAuthed && (
+      {page === "community" && (
         <CommunityFeed
           token={token}
           onRank={openRankWith}
+          onView={openViewWith}
           onOpenProfile={openPublicProfile}
         />
       )}
 
-      {page === "profile" && isAuthed && (
-        <div style={{ marginTop: 24 }}>
+      {page === "profile" && (
+        <div className="profile-page">
           {publicProfileId && publicProfileId !== me?.id ? (
             <UserProfileView
               token={token}
               userId={publicProfileId}
               onOpenProfile={openPublicProfile}
               onRank={openRankWith}
+              onView={openViewWith}
             />
           ) : (
             <div className="profile-shell">
@@ -442,26 +477,13 @@ export default function App() {
                       }
                     />
                   </label>
-                  <label className="input-group">
-                    <span>Visibilité par défaut</span>
-                    <select
-                      value={me?.defaultVisibility || "public"}
-                      onChange={(event) =>
-                        updateProfile({ defaultVisibility: event.target.value })
-                      }
-                      disabled={profileLoading}
-                    >
-                      <option value="public">Public</option>
-                      <option value="private">Privé</option>
-                    </select>
-                  </label>
                   {profileError && (
                     <div className="auth-error">{profileError}</div>
                   )}
                 </div>
               </div>
 
-              <div className="gallery-section" style={{ marginTop: 20 }}>
+              <div className="gallery-section profile-friends-section">
                 <div className="gallery-section-header">
                   <div>
                     <h3>Amis</h3>
@@ -517,6 +539,11 @@ export default function App() {
                         className="profile-friend-chip"
                         onClick={() => openPublicProfile(friend.id)}
                       >
+                        <img
+                          src={friend.avatar || "https://placehold.co/32x32"}
+                          alt=""
+                          className="profile-friend-avatar"
+                        />
                         {friend.displayName || friend.userId}
                       </button>
                     ))
@@ -526,10 +553,6 @@ export default function App() {
             </div>
           )}
         </div>
-      )}
-
-      {page === "gallery" && !isAuthed && (
-        <Gallery onRank={openRankWith} onEdit={openEditWith} />
       )}
     </div>
   );

@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { deleteTierlistRecord, loadSavedTierlists } from "../utils/tierlists";
+import {
+  deleteTierlistRecord,
+  loadSavedTierlists,
+} from "../../utils/tierlists";
+import "./Gallery.css";
 
 function getCoverSrc(template) {
   if (template?.coverImage?.src) {
@@ -95,19 +99,11 @@ export default function Gallery({ onRank, onEdit }) {
   );
 
   return (
-    <div style={{ marginTop: 20 }}>
+    <div className="gallery-page">
       <h2>Mes TierLists</h2>
 
       {templates.length === 0 ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            background: "var(--card)",
-            borderRadius: 16,
-            border: "2px dashed var(--border)",
-          }}
-        >
+        <div className="empty-gallery">
           <p className="small">Aucune tierlist créée pour l'instant.</p>
         </div>
       ) : (

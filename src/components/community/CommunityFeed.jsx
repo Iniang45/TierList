@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from "react";
-import TierlistCard from "./TierlistCard";
-import { communityApi } from "../services/communityApi";
+import TierlistCard from "../gallery/TierlistCard";
+import { communityApi } from "../../services/communityApi";
+import "./CommunityFeed.css";
 
-export default function CommunityFeed({ token, onRank, onOpenProfile }) {
+export default function CommunityFeed({
+  token,
+  onRank,
+  onView,
+  onOpenProfile,
+}) {
   const [tierlists, setTierlists] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [error, setError] = useState("");
@@ -22,8 +28,8 @@ export default function CommunityFeed({ token, onRank, onOpenProfile }) {
   }, [token]);
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div className="gallery-section" style={{ marginBottom: 20 }}>
+    <div className="community-page">
+      <div className="gallery-section community-header">
         <div className="gallery-section-header">
           <div>
             <h3>Communauté</h3>
@@ -50,9 +56,11 @@ export default function CommunityFeed({ token, onRank, onOpenProfile }) {
               )
             }
             onRank={onRank}
+            onView={onView}
             onOpenProfile={onOpenProfile}
             showActions
-            showRank
+            showRank={tierlist.type === "template"}
+            showView={tierlist.type === "ranking"}
             showEdit={false}
             showDelete={false}
           />

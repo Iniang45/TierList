@@ -95,16 +95,39 @@ function getAuthUser(req, db) {
   return db.users.find((user) => user.id === userId) || null;
 }
 
-function sanitizeUser(user) {
+function sanitizeUser(user, users = []) {
   if (!user) return null;
   const { passwordHash, ...safe } = user;
+  safe.friends = (user.friends || [])
+    .map((friendId) => users.find((friend) => friend.id === friendId))
+    .filter(Boolean)
+    .map((friend) => {
+      const {
+        passwordHash: ignored,
+        friends: ignoredFriends,
+        ...friendData
+      } = friend;
+      return friendData;
+    });
   return safe;
 }
 
 function sanitizeTierlist(tierlist, users) {
   const owner = users.find((user) => user.id === tierlist.ownerId) || null;
+  const sourceItems = Array.isArray(tierlist.items) ? tierlist.items : [];
+  const sourceImages = Array.isArray(tierlist.images) ? tierlist.images : [];
+  const items = sourceItems.length > 0 ? sourceItems : sourceImages;
+  const images = sourceImages.length > 0 ? sourceImages : sourceItems;
+  const assets = [...items, ...images].filter(
+    (image, index, list) =>
+      image?.src &&
+      list.findIndex((candidate) => candidate?.src === image.src) === index,
+  );
   return {
     ...tierlist,
+    items,
+    images,
+    assets,
     owner: owner
       ? {
           id: owner.id,
@@ -118,6 +141,19 @@ function sanitizeTierlist(tierlist, users) {
 
 function publicVisible(list) {
   return list.visibility === "public";
+}
+
+function collectAssets(body) {
+  const candidates = [
+    ...(Array.isArray(body.assets) ? body.assets : []),
+    ...(Array.isArray(body.items) ? body.items : []),
+    ...(Array.isArray(body.images) ? body.images : []),
+  ];
+  return candidates.filter(
+    (image, index, list) =>
+      image?.src &&
+      list.findIndex((candidate) => candidate?.src === image.src) === index,
+  );
 }
 
 function visibleToUser(list, user) {
@@ -259,7 +295,7 @@ async function handler(req, res) {
 
     const token = createToken();
     TOKENS.set(token, user.id);
-    json(res, 201, { token, user: sanitizeUser(user) });
+    json(res, 201, { token, user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -277,7 +313,7 @@ async function handler(req, res) {
 
     const token = createToken();
     TOKENS.set(token, user.id);
-    json(res, 200, { token, user: sanitizeUser(user) });
+    json(res, 200, { token, user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -287,7 +323,7 @@ async function handler(req, res) {
       json(res, 401, { error: "Non authentifié" });
       return;
     }
-    json(res, 200, { user: sanitizeUser(user) });
+    json(res, 200, { user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -303,7 +339,7 @@ async function handler(req, res) {
     if (body.avatar !== undefined) user.avatar = String(body.avatar);
     if (Array.isArray(body.friends)) user.friends = body.friends;
     writeDb(db);
-    json(res, 200, { user: sanitizeUser(user) });
+    json(res, 200, { user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -326,7 +362,7 @@ async function handler(req, res) {
       user.friends.push(friend.id);
       writeDb(db);
     }
-    json(res, 200, { user: sanitizeUser(user) });
+    json(res, 200, { user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -339,7 +375,7 @@ async function handler(req, res) {
     const friendId = url.pathname.split("/").pop();
     user.friends = user.friends.filter((id) => id !== friendId);
     writeDb(db);
-    json(res, 200, { user: sanitizeUser(user) });
+    json(res, 200, { user: sanitizeUser(user, db.users) });
     return;
   }
 
@@ -352,7 +388,7 @@ async function handler(req, res) {
           user.userId.toLowerCase().includes(q) ||
           user.displayName.toLowerCase().includes(q),
       )
-      .map(sanitizeUser);
+      .map((user) => sanitizeUser(user, db.users));
     json(res, 200, { users });
     return;
   }
@@ -375,7 +411,7 @@ async function handler(req, res) {
         tierlist.ownerId === target.id && tierlist.visibility === "public",
     );
     json(res, 200, {
-      user: sanitizeUser(target),
+      user: sanitizeUser(target, db.users),
       createdTierlists: visibleTierlists.filter(
         (tierlist) => tierlist.type === "template",
       ),
@@ -442,6 +478,7 @@ async function handler(req, res) {
       tiers: Array.isArray(body.tiers) ? body.tiers : [],
       images: Array.isArray(body.images) ? body.images : [],
       items: Array.isArray(body.items) ? body.items : [],
+      assets: collectAssets(body),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -488,6 +525,11 @@ async function handler(req, res) {
       tiers: Array.isArray(body.tiers) ? body.tiers : tierlist.tiers,
       images: Array.isArray(body.images) ? body.images : tierlist.images,
       items: Array.isArray(body.items) ? body.items : tierlist.items,
+      assets: collectAssets({
+        assets: body.assets ?? tierlist.assets,
+        images: body.images ?? tierlist.images,
+        items: body.items ?? tierlist.items,
+      }),
       updatedAt: new Date().toISOString(),
     });
     writeDb(db);
@@ -521,7 +563,6 @@ async function handler(req, res) {
       .filter(
         (tierlist) =>
           tierlist.visibility === "public" &&
-          tierlist.type === "template" &&
           (!user || tierlist.ownerId !== user.id),
       )
       .map((tierlist) => sanitizeTierlist(tierlist, db.users));

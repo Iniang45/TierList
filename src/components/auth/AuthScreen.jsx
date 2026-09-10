@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "./AuthScreen.css";
 
 export default function AuthScreen({ onLogin, onRegister }) {
   const [mode, setMode] = useState("login");

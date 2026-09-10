@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
-import TierlistCard from "./TierlistCard";
-import { communityApi } from "../services/communityApi";
+import TierlistCard from "../gallery/TierlistCard";
+import { communityApi } from "../../services/communityApi";
+import "./UserProfileView.css";
 
 export default function UserProfileView({
   token,
   userId,
   onOpenProfile,
   onRank,
+  onView,
 }) {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -37,8 +39,8 @@ export default function UserProfileView({
   }
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div className="gallery-section" style={{ marginBottom: 20 }}>
+    <div className="public-profile-page">
+      <div className="gallery-section public-profile-header">
         <div className="profile-header">
           <img
             src={profile.user?.avatar || "https://placehold.co/96x96"}
@@ -69,6 +71,7 @@ export default function UserProfileView({
                   )
                 }
                 onRank={onRank}
+                onView={onView}
                 onOpenProfile={onOpenProfile}
                 showActions
                 showRank
@@ -98,6 +101,7 @@ export default function UserProfileView({
                 onOpenProfile={onOpenProfile}
                 showActions
                 showRank={false}
+                showView
                 showEdit={false}
                 showDelete={false}
               />

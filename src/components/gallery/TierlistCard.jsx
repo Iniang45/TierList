@@ -1,11 +1,15 @@
 import React from "react";
+import "./TierlistCard.css";
 
 function getCoverSrc(tierlist) {
   if (tierlist?.coverImage?.src) {
     return tierlist.coverImage.src;
   }
 
-  const firstImage = (tierlist?.images || tierlist?.items || [])[0];
+  const firstImage = (tierlist?.items ||
+    tierlist?.images ||
+    tierlist?.assets ||
+    [])[0];
   return firstImage?.src || "";
 }
 
@@ -19,10 +23,12 @@ export default function TierlistCard({
   onToggle,
   onEdit,
   onRank,
+  onView,
   onDelete,
   onOpenProfile,
   showActions = true,
   showRank = false,
+  showView = false,
   showEdit = false,
   showDelete = false,
   showOwner = true,
@@ -84,6 +90,14 @@ export default function TierlistCard({
               {showEdit && onEdit && (
                 <button className="btn" onClick={() => onEdit(tierlist)}>
                   Modifier
+                </button>
+              )}
+              {showView && onView && (
+                <button
+                  className="btn secondary"
+                  onClick={() => onView(tierlist)}
+                >
+                  Voir
                 </button>
               )}
               {showRank && onRank && (

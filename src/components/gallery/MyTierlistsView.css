@@ -1,0 +1,4 @@
+.gallery-sections {
+  display: grid;
+  gap: 20px;
+}

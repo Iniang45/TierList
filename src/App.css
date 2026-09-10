@@ -1,0 +1,150 @@
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+.hero-panel {
+  padding: 20px;
+  background: var(--card);
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.profile-shell,
+.profile-form,
+.profile-search,
+.profile-friends {
+  background: var(--card);
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.profile-shell {
+  padding: 16px;
+}
+.profile-form,
+.profile-search,
+.profile-friends {
+  padding: 16px;
+  margin-top: 16px;
+}
+.profile-form {
+  display: grid;
+  gap: 14px;
+}
+.profile-search-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.profile-search-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.profile-friends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.profile-friend-chip {
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.profile-friend-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.profile-form input,
+.profile-form textarea,
+.profile-form select,
+.profile-search input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--card);
+}
+.hero-card {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-chip img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.header {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+.header h1 {
+  margin: 0;
+  font-size: 28px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nav {
+  display: flex;
+  gap: 12px;
+}
+.home-page {
+  margin-top: 32px;
+}
+.home-panel-auth {
+  max-width: 760px;
+}
+.hero-copy {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.home-actions {
+  margin-top: 20px;
+}
+.home-cards {
+  margin-top: 20px;
+  display: grid;
+  gap: 16px;
+}
+.home-card-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.home-card-action {
+  margin-top: 12px;
+}
+.profile-page {
+  margin-top: 24px;
+}
+.profile-friends-section {
+  margin-top: 20px;
+}
