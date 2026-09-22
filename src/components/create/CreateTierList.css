@@ -1,6 +1,35 @@
 .editor-heading {
   margin-bottom: 24px;
 }
+.create-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.create-page .editor-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  padding: 8px 4px;
+}
+.create-page .editor-heading h2 {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 38px);
+  letter-spacing: -0.02em;
+}
+.create-page .create-main .editor-card {
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 36px rgba(30, 41, 59, 0.08);
+}
+.create-page .create-side .side-panel {
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 36px rgba(30, 41, 59, 0.06);
+}
+.create-page .cover-dropzone {
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+}
+.create-page .save-submit {
+  min-height: 48px;
+}
 .editor-card {
   background: var(--card);
   border-radius: 16px;

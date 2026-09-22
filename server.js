@@ -2,34 +2,130 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+require("dotenv").config();
+const { MongoClient } = require("mongodb");
 
 const PORT = Number(process.env.API_PORT || 3001);
 const DB_PATH = path.join(__dirname, "data", "db.json");
+const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "tierlist_studio";
 const TOKENS = new Map();
+const ADMIN_USER_ID = "ibra";
+const ADMIN_PASSWORD = "galakrond";
+let mongoClient;
+let mongoDb;
 
-function ensureDb() {
+function readLegacyDb() {
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  if (!fs.existsSync(DB_PATH)) {
-    const seed = {
-      users: [],
-      tierlists: [],
-    };
-    fs.writeFileSync(DB_PATH, JSON.stringify(seed, null, 2), "utf8");
+  if (!fs.existsSync(DB_PATH)) return null;
+  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  return {
+    users: Array.isArray(db.users) ? db.users : [],
+    tierlists: Array.isArray(db.tierlists) ? db.tierlists : [],
+    friendRequests: Array.isArray(db.friendRequests) ? db.friendRequests : [],
+  };
+}
+
+async function connectDatabase() {
+  if (mongoDb) return mongoDb;
+  if (!MONGODB_URI) {
+    throw new Error(
+      "MONGODB_URI est obligatoire. Configurez l'URI de votre cluster MongoDB Atlas.",
+    );
+  }
+
+  mongoClient = new MongoClient(MONGODB_URI);
+  await mongoClient.connect();
+  mongoDb = mongoClient.db(MONGODB_DB_NAME);
+
+  const users = mongoDb.collection("users");
+  const tierlists = mongoDb.collection("tierlists");
+  const friendRequests = mongoDb.collection("friendRequests");
+  await Promise.all([
+    users.createIndex({ id: 1 }, { unique: true }),
+    users.createIndex({ userId: 1 }, { unique: true }),
+    tierlists.createIndex({ id: 1 }, { unique: true }),
+    tierlists.createIndex({ ownerId: 1 }),
+    friendRequests.createIndex({ id: 1 }, { unique: true }),
+    friendRequests.createIndex({ toUserId: 1 }),
+  ]);
+
+  const hasData =
+    (await users.countDocuments()) > 0 ||
+    (await tierlists.countDocuments()) > 0 ||
+    (await friendRequests.countDocuments()) > 0;
+  if (!hasData && process.env.MONGODB_MIGRATE_FILE !== "false") {
+    const legacyDb = readLegacyDb();
+    if (legacyDb) {
+      if (legacyDb.users.length) await users.insertMany(legacyDb.users);
+      if (legacyDb.tierlists.length) {
+        await tierlists.insertMany(legacyDb.tierlists);
+      }
+      if (legacyDb.friendRequests.length) {
+        await friendRequests.insertMany(legacyDb.friendRequests);
+      }
+      console.log("Données locales migrées vers MongoDB Atlas.");
+    }
+  }
+
+  const admin = await users.findOne({ userId: ADMIN_USER_ID });
+  if (!admin) {
+    await users.insertOne({
+      id: createId("user"),
+      userId: ADMIN_USER_ID,
+      displayName: "Administrateur",
+      passwordHash: hashPassword(ADMIN_PASSWORD),
+      avatar: "",
+      friends: [],
+      role: "admin",
+      createdAt: new Date().toISOString(),
+    });
+  } else if (admin.role !== "admin") {
+    await users.updateOne(
+      { _id: admin._id },
+      { $set: { role: "admin", passwordHash: hashPassword(ADMIN_PASSWORD) } },
+    );
+  }
+
+  return mongoDb;
+}
+
+async function syncCollection(collectionName, documents) {
+  const collection = mongoDb.collection(collectionName);
+  const ids = documents.map((document) => document.id);
+  if (ids.length) {
+    await collection.deleteMany({ id: { $nin: ids } });
+  } else {
+    await collection.deleteMany({});
+  }
+  for (const document of documents) {
+    await collection.replaceOne({ id: document.id }, document, {
+      upsert: true,
+    });
   }
 }
 
-function readDb() {
-  ensureDb();
-  return JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+async function readDb() {
+  await connectDatabase();
+  const [users, tierlists, friendRequests] = await Promise.all([
+    await mongoDb.collection("users").find({}).toArray(),
+    await mongoDb.collection("tierlists").find({}).toArray(),
+    await mongoDb.collection("friendRequests").find({}).toArray(),
+  ]);
+  return { users, tierlists, friendRequests };
 }
 
-function writeDb(db) {
-  ensureDb();
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
+async function writeDb(db) {
+  await connectDatabase();
+  await Promise.all([
+    await syncCollection("users", db.users),
+    await syncCollection("tierlists", db.tierlists),
+    await syncCollection("friendRequests", db.friendRequests),
+  ]);
 }
 
 function json(res, statusCode, body) {
@@ -95,9 +191,14 @@ function getAuthUser(req, db) {
   return db.users.find((user) => user.id === userId) || null;
 }
 
-function sanitizeUser(user, users = []) {
+function requireAdmin(req, db) {
+  const user = getAuthUser(req, db);
+  return user?.role === "admin" ? user : null;
+}
+
+function sanitizeUser(user, users = [], db = null) {
   if (!user) return null;
-  const { passwordHash, ...safe } = user;
+  const { _id, passwordHash, ...safe } = user;
   safe.friends = (user.friends || [])
     .map((friendId) => users.find((friend) => friend.id === friendId))
     .filter(Boolean)
@@ -109,6 +210,26 @@ function sanitizeUser(user, users = []) {
       } = friend;
       return friendData;
     });
+  if (db?.friendRequests) {
+    safe.friendRequests = db.friendRequests
+      .filter((request) => request.toUserId === user.id)
+      .map((request) => ({
+        ...request,
+        from: sanitizeUser(
+          users.find((candidate) => candidate.id === request.fromUserId),
+          users,
+        ),
+      }));
+    safe.sentFriendRequests = db.friendRequests
+      .filter((request) => request.fromUserId === user.id)
+      .map((request) => ({
+        ...request,
+        to: sanitizeUser(
+          users.find((candidate) => candidate.id === request.toUserId),
+          users,
+        ),
+      }));
+  }
   return safe;
 }
 
@@ -157,7 +278,10 @@ function collectAssets(body) {
 }
 
 function visibleToUser(list, user) {
-  return list.visibility === "public" || (user && list.ownerId === user.id);
+  return (
+    list.visibility === "public" ||
+    (user && (list.ownerId === user.id || user.role === "admin"))
+  );
 }
 
 async function serveDocs(res) {
@@ -246,7 +370,7 @@ async function handler(req, res) {
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const db = readDb();
+  const db = await readDb();
 
   if (url.pathname === "/api/openapi.json" && req.method === "GET") {
     json(res, 200, openApi);
@@ -291,7 +415,7 @@ async function handler(req, res) {
     };
 
     db.users.push(user);
-    writeDb(db);
+    await writeDb(db);
 
     const token = createToken();
     TOKENS.set(token, user.id);
@@ -323,7 +447,85 @@ async function handler(req, res) {
       json(res, 401, { error: "Non authentifié" });
       return;
     }
-    json(res, 200, { user: sanitizeUser(user, db.users) });
+    json(res, 200, { user: sanitizeUser(user, db.users, db) });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/users" && req.method === "GET") {
+    const admin = requireAdmin(req, db);
+    if (!admin) {
+      json(res, 403, { error: "Droits administrateur requis" });
+      return;
+    }
+    json(res, 200, {
+      users: db.users.map((user) => sanitizeUser(user, db.users)),
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/admin/tierlists" && req.method === "GET") {
+    const admin = requireAdmin(req, db);
+    if (!admin) {
+      json(res, 403, { error: "Droits administrateur requis" });
+      return;
+    }
+    json(res, 200, {
+      tierlists: db.tierlists.map((tierlist) =>
+        sanitizeTierlist(tierlist, db.users),
+      ),
+    });
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/api/admin/tierlists/") &&
+    req.method === "DELETE"
+  ) {
+    const admin = requireAdmin(req, db);
+    if (!admin) {
+      json(res, 403, { error: "Droits administrateur requis" });
+      return;
+    }
+    const id = url.pathname.split("/").pop();
+    const index = db.tierlists.findIndex((tierlist) => tierlist.id === id);
+    if (index === -1) {
+      json(res, 404, { error: "Tierlist introuvable" });
+      return;
+    }
+    db.tierlists.splice(index, 1);
+    await writeDb(db);
+    json(res, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/admin/users/") && req.method === "DELETE") {
+    const admin = requireAdmin(req, db);
+    if (!admin) {
+      json(res, 403, { error: "Droits administrateur requis" });
+      return;
+    }
+    const id = url.pathname.split("/").pop();
+    const target = db.users.find((user) => user.id === id);
+    if (!target) {
+      json(res, 404, { error: "Utilisateur introuvable" });
+      return;
+    }
+    if (target.id === admin.id) {
+      json(res, 400, {
+        error: "Impossible de supprimer le compte admin actif",
+      });
+      return;
+    }
+    db.users = db.users.filter((user) => user.id !== id);
+    db.users.forEach((user) => {
+      user.friends = (user.friends || []).filter((friendId) => friendId !== id);
+    });
+    db.friendRequests = db.friendRequests.filter(
+      (request) => request.fromUserId !== id && request.toUserId !== id,
+    );
+    db.tierlists = db.tierlists.filter((tierlist) => tierlist.ownerId !== id);
+    await writeDb(db);
+    json(res, 200, { ok: true });
     return;
   }
 
@@ -337,9 +539,8 @@ async function handler(req, res) {
     if (body.displayName !== undefined)
       user.displayName = String(body.displayName);
     if (body.avatar !== undefined) user.avatar = String(body.avatar);
-    if (Array.isArray(body.friends)) user.friends = body.friends;
-    writeDb(db);
-    json(res, 200, { user: sanitizeUser(user, db.users) });
+    await writeDb(db);
+    json(res, 200, { user: sanitizeUser(user, db.users, db) });
     return;
   }
 
@@ -358,11 +559,91 @@ async function handler(req, res) {
       json(res, 404, { error: "Utilisateur introuvable" });
       return;
     }
-    if (!user.friends.includes(friend.id) && friend.id !== user.id) {
-      user.friends.push(friend.id);
-      writeDb(db);
+    if (friend.id === user.id) {
+      json(res, 400, { error: "Impossible de s'ajouter soi-même" });
+      return;
     }
-    json(res, 200, { user: sanitizeUser(user, db.users) });
+    if (user.friends.includes(friend.id)) {
+      json(res, 409, { error: "Vous êtes déjà amis" });
+      return;
+    }
+    const existing = db.friendRequests.find(
+      (request) =>
+        request.fromUserId === user.id && request.toUserId === friend.id,
+    );
+    const reverse = db.friendRequests.find(
+      (request) =>
+        request.fromUserId === friend.id && request.toUserId === user.id,
+    );
+    if (existing || reverse) {
+      json(res, 409, { error: "Une demande est déjà en cours" });
+      return;
+    }
+    db.friendRequests.push({
+      id: createId("friend_request"),
+      fromUserId: user.id,
+      toUserId: friend.id,
+      createdAt: new Date().toISOString(),
+    });
+    await writeDb(db);
+    json(res, 201, { user: sanitizeUser(user, db.users, db) });
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/api/friends/requests/") &&
+    req.method === "POST"
+  ) {
+    const user = getAuthUser(req, db);
+    if (!user) {
+      json(res, 401, { error: "Non authentifié" });
+      return;
+    }
+    const requestId = url.pathname.split("/").pop();
+    const request = db.friendRequests.find(
+      (entry) => entry.id === requestId && entry.toUserId === user.id,
+    );
+    if (!request) {
+      json(res, 404, { error: "Demande introuvable" });
+      return;
+    }
+    const sender = db.users.find((entry) => entry.id === request.fromUserId);
+    if (!sender) {
+      json(res, 404, { error: "Utilisateur introuvable" });
+      return;
+    }
+    if (!user.friends.includes(sender.id)) user.friends.push(sender.id);
+    if (!sender.friends.includes(user.id)) sender.friends.push(user.id);
+    db.friendRequests = db.friendRequests.filter(
+      (entry) => entry.id !== requestId,
+    );
+    await writeDb(db);
+    json(res, 200, { user: sanitizeUser(user, db.users, db) });
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/api/friends/requests/") &&
+    req.method === "DELETE"
+  ) {
+    const user = getAuthUser(req, db);
+    if (!user) {
+      json(res, 401, { error: "Non authentifié" });
+      return;
+    }
+    const requestId = url.pathname.split("/").pop();
+    const requestIndex = db.friendRequests.findIndex(
+      (entry) =>
+        entry.id === requestId &&
+        (entry.toUserId === user.id || entry.fromUserId === user.id),
+    );
+    if (requestIndex === -1) {
+      json(res, 404, { error: "Demande introuvable" });
+      return;
+    }
+    db.friendRequests.splice(requestIndex, 1);
+    await writeDb(db);
+    json(res, 200, { ok: true });
     return;
   }
 
@@ -374,7 +655,7 @@ async function handler(req, res) {
     }
     const friendId = url.pathname.split("/").pop();
     user.friends = user.friends.filter((id) => id !== friendId);
-    writeDb(db);
+    await writeDb(db);
     json(res, 200, { user: sanitizeUser(user, db.users) });
     return;
   }
@@ -484,7 +765,7 @@ async function handler(req, res) {
     };
 
     db.tierlists.push(tierlist);
-    writeDb(db);
+    await writeDb(db);
     json(res, 201, { tierlist: sanitizeTierlist(tierlist, db.users) });
     return;
   }
@@ -509,7 +790,7 @@ async function handler(req, res) {
     }
     const id = url.pathname.split("/").pop();
     const tierlist = db.tierlists.find((entry) => entry.id === id);
-    if (!tierlist || tierlist.ownerId !== user.id) {
+    if (!tierlist || (tierlist.ownerId !== user.id && user.role !== "admin")) {
       json(res, 404, { error: "Tierlist introuvable" });
       return;
     }
@@ -532,7 +813,7 @@ async function handler(req, res) {
       }),
       updatedAt: new Date().toISOString(),
     });
-    writeDb(db);
+    await writeDb(db);
     json(res, 200, { tierlist: sanitizeTierlist(tierlist, db.users) });
     return;
   }
@@ -544,29 +825,47 @@ async function handler(req, res) {
       return;
     }
     const id = url.pathname.split("/").pop();
-    const index = db.tierlists.findIndex(
-      (entry) => entry.id === id && entry.ownerId === user.id,
+    const index = db.tierlists.findIndex((entry) =>
+      user.role === "admin"
+        ? entry.id === id
+        : entry.id === id && entry.ownerId === user.id,
     );
     if (index === -1) {
       json(res, 404, { error: "Tierlist introuvable" });
       return;
     }
     db.tierlists.splice(index, 1);
-    writeDb(db);
+    await writeDb(db);
     json(res, 200, { ok: true });
     return;
   }
 
   if (url.pathname === "/api/public-feed" && req.method === "GET") {
     const user = getAuthUser(req, db);
-    const tierlists = db.tierlists
-      .filter(
-        (tierlist) =>
-          tierlist.visibility === "public" &&
-          (!user || tierlist.ownerId !== user.id),
-      )
-      .map((tierlist) => sanitizeTierlist(tierlist, db.users));
-    json(res, 200, { tierlists });
+    const friendIds = new Set(user?.friends || []);
+    const visible = db.tierlists.filter((tierlist) => {
+      if (tierlist.visibility !== "public" || user?.id === tierlist.ownerId) {
+        return false;
+      }
+
+      if (tierlist.type === "template") {
+        return true;
+      }
+
+      return Boolean(user && friendIds.has(tierlist.ownerId));
+    });
+    const tierlists = visible.map((tierlist) =>
+      sanitizeTierlist(tierlist, db.users),
+    );
+    json(res, 200, {
+      tierlists,
+      createdTierlists: tierlists.filter(
+        (tierlist) => tierlist.type === "template",
+      ),
+      rankedTierlists: tierlists.filter(
+        (tierlist) => tierlist.type === "ranking",
+      ),
+    });
     return;
   }
 
@@ -591,7 +890,16 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  ensureDb();
-  console.log(`TierList API running on http://localhost:${PORT}`);
+async function startServer() {
+  await connectDatabase();
+  server.listen(PORT, () => {
+    console.log(
+      `TierList API running on http://localhost:${PORT} with MongoDB ${MONGODB_DB_NAME}`,
+    );
+  });
+}
+
+startServer().catch((error) => {
+  console.error(`Impossible de démarrer l'API : ${error.message}`);
+  process.exitCode = 1;
 });

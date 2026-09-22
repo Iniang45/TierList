@@ -23,22 +23,37 @@ démarre deux processus enfants, Vite pour le frontend (`npm run dev:client`)
 et l'API Node (`npm run dev:api`).
 
 L'API est implémentée directement avec le module natif `http` de Node.js, sans
-Express ni base de données externe. Elle écoute sur `http://localhost:3001` et
-expose notamment `/api/auth`, `/api/me`, `/api/friends` et `/api/tierlists`.
+Express. Elle écoute sur `http://localhost:3001` et expose notamment
+`/api/auth`, `/api/me`, `/api/friends` et `/api/tierlists`.
+
+La persistance utilise maintenant MongoDB Atlas via le package officiel
+`mongodb`. Copiez `.env.example` vers `.env`, puis renseignez l'URI de votre
+cluster :
+
+```env
+MONGODB_URI=mongodb+srv://utilisateur:mot_de_passe@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB_NAME=tierlist_studio
+```
+
+Dans MongoDB Atlas, ajoutez l'adresse IP de la machine de déploiement dans
+`Network Access` et créez un utilisateur de base de données dans `Database
+Access`. N'intégrez jamais l'URI complète contenant le mot de passe dans Git.
 
 Le fichier `server.js` :
 
 - crée le serveur HTTP et route les requêtes selon leur méthode et leur URL ;
-- lit et écrit les comptes et tierlists dans `data/db.json` ;
+- lit et écrit les collections `users`, `tierlists` et `friendRequests` dans MongoDB Atlas ;
 - hash les mots de passe avec SHA-256 avant de les stocker ;
 - crée des tokens de session en mémoire et vérifie l'en-tête `Authorization` ;
 - renvoie du JSON et active le CORS pour le frontend Vite.
 
-Les comptes persistent après un redémarrage car `data/db.json` est un fichier
-sur le disque du projet. En revanche, les tokens de session sont conservés
-uniquement dans la mémoire de `server.js` : après un redémarrage de l'API, il
-faut se reconnecter. Les tierlists invitées sont conservées dans le
-`localStorage` du navigateur.
+Au premier démarrage sur une base MongoDB vide, le serveur migre automatiquement
+`data/db.json` si le fichier existe. Cette migration peut être désactivée avec
+`MONGODB_MIGRATE_FILE=false`. Après la migration, MongoDB Atlas devient la
+source de vérité ; `data/db.json` n'est plus utilisé pour les nouvelles
+écritures. Les tokens de session restent en mémoire dans `server.js`, donc un
+redémarrage de l'API demande une nouvelle connexion. Les tierlists invitées
+restent temporaires dans le `sessionStorage` du navigateur.
 
 ## Fonctionnalités
 
@@ -52,4 +67,4 @@ faut se reconnecter. Les tierlists invitées sont conservées dans le
 
 ## Tech
 
-React + Vite + html2canvas
+React + Vite + Node.js HTTP + MongoDB Atlas + html2canvas

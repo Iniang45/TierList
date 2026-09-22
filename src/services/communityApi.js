@@ -29,6 +29,10 @@ export const communityApi = {
     request(`/users/${userId}/profile`, { token }),
   addFriend: (token, friendId) =>
     request("/friends", { token, method: "POST", body: { friendId } }),
+  acceptFriendRequest: (token, requestId) =>
+    request(`/friends/requests/${requestId}`, { token, method: "POST" }),
+  rejectFriendRequest: (token, requestId) =>
+    request(`/friends/requests/${requestId}`, { token, method: "DELETE" }),
   removeFriend: (token, friendId) =>
     request(`/friends/${friendId}`, { token, method: "DELETE" }),
   myTierlists: (token) => request("/tierlists/me", { token }),
@@ -41,4 +45,10 @@ export const communityApi = {
   deleteTierlist: (token, id) =>
     request(`/tierlists/${id}`, { token, method: "DELETE" }),
   getTierlist: (id, token) => request(`/tierlists/${id}`, { token }),
+  adminUsers: (token) => request("/admin/users", { token }),
+  adminTierlists: (token) => request("/admin/tierlists", { token }),
+  adminDeleteTierlist: (token, id) =>
+    request(`/admin/tierlists/${id}`, { token, method: "DELETE" }),
+  adminDeleteUser: (token, id) =>
+    request(`/admin/users/${id}`, { token, method: "DELETE" }),
 };

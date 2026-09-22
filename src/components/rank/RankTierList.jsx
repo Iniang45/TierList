@@ -173,7 +173,7 @@ export default function RankTierList({
   if (!ranking) return <div>Chargement...</div>;
 
   return (
-    <div className="rank-page">
+    <div className="rank-page ranking-page">
       <div className="rank-header">
         <div>
           <h2>{ranking.name}</h2>

@@ -256,7 +256,7 @@ export default function CreateTierList({
   }
 
   return (
-    <div className="layout">
+    <div className="layout create-page">
       <div className="editor">
         <div className="editor-heading">
           <h2>{isEditing ? "Modifier une TierList" : "Créer une TierList"}</h2>

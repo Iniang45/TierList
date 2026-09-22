@@ -5,6 +5,7 @@ import AuthScreen from "./components/auth/AuthScreen";
 import MyTierlistsView from "./components/gallery/MyTierlistsView";
 import CommunityFeed from "./components/community/CommunityFeed";
 import UserProfileView from "./components/profile/UserProfileView";
+import AdminDashboard from "./components/admin/AdminDashboard";
 import { communityApi } from "./services/communityApi";
 import {
   deleteTemporaryTierlist,
@@ -38,6 +39,18 @@ export default function App() {
     () => new Set((me?.friends || []).map((friend) => friend.id || friend)),
     [me],
   );
+  const sentRequestIds = useMemo(
+    () =>
+      new Set(
+        (me?.sentFriendRequests || []).map((request) => request.toUser?.id),
+      ),
+    [me],
+  );
+  const receivedRequestIds = useMemo(
+    () =>
+      new Set((me?.friendRequests || []).map((request) => request.from?.id)),
+    [me],
+  );
 
   useEffect(() => {
     if (!token) {
@@ -54,6 +67,9 @@ export default function App() {
         if (!cancelled) {
           setMe(payload.user);
           setMyTierlists(payload.tierlists || []);
+          if (payload.user.role === "admin") {
+            setPage("admin");
+          }
         }
       } catch {
         if (!cancelled) {
@@ -113,7 +129,7 @@ export default function App() {
     localStorage.setItem(TOKEN_KEY, payload.token);
     setToken(payload.token);
     setMe(payload.user);
-    setPage("home");
+    setPage(payload.user.role === "admin" ? "admin" : "home");
   }
 
   async function handleRegister(credentials) {
@@ -183,6 +199,17 @@ export default function App() {
     setMe(payload.user);
   }
 
+  async function acceptFriendRequest(requestId) {
+    const payload = await communityApi.acceptFriendRequest(token, requestId);
+    setMe(payload.user);
+  }
+
+  async function rejectFriendRequest(requestId) {
+    await communityApi.rejectFriendRequest(token, requestId);
+    const payload = await communityApi.me(token);
+    setMe(payload.user);
+  }
+
   async function removeFriend(friendId) {
     await communityApi.removeFriend(token, friendId);
     const payload = await communityApi.me(token);
@@ -213,6 +240,24 @@ export default function App() {
 
     setTemplateToRank(null);
     setTierlistToEdit(template);
+    setPage("create");
+  }
+
+  function copyTierlist(template) {
+    const copy = {
+      ...template,
+      id: undefined,
+      owner: undefined,
+      ownerId: undefined,
+      ownerType: undefined,
+      type: "template",
+      name: `Copie de ${template.name || "Sans titre"}`,
+      visibility: "private",
+      created: Date.now(),
+      updated: Date.now(),
+    };
+    setTemplateToRank(null);
+    setTierlistToEdit(copy);
     setPage("create");
   }
 
@@ -259,6 +304,14 @@ export default function App() {
             >
               Communauté
             </button>
+            {me?.role === "admin" && (
+              <button
+                className={`btn ${activeSection === "admin" ? "active" : ""}`}
+                onClick={() => setPage("admin")}
+              >
+                Admin
+              </button>
+            )}
             <button
               className="btn"
               onClick={() => {
@@ -304,8 +357,8 @@ export default function App() {
       )}
 
       {page === "home" && !isAuthed && (
-        <div className="home-page">
-          <div className="hero-panel">
+        <div className="home-page home-guest-page">
+          <div className="hero-panel home-hero-panel">
             <h2>Créez et rangez vos tierlists immédiatement</h2>
             <p className="small hero-copy">
               Commencez sans compte. Vos listes sont conservées dans ce
@@ -339,8 +392,8 @@ export default function App() {
       )}
 
       {page === "home" && isAuthed && (
-        <div className="home-page">
-          <div className="hero-panel home-panel-auth">
+        <div className="home-page home-dashboard">
+          <div className="hero-panel home-panel-auth home-auth-hero">
             <h2>
               Bienvenue {me?.displayName || me?.userId || "sur TierList Studio"}
             </h2>
@@ -349,7 +402,7 @@ export default function App() {
               au profil, aux amis et au flux public.
             </p>
             <div className="home-cards">
-              <div className="hero-card">
+              <div className="hero-card home-card">
                 <div className="home-card-title">1. Créer une TierList</div>
                 <div className="small">
                   Définissez les tiers, ajoutez des images et préparez une base
@@ -362,7 +415,7 @@ export default function App() {
                   Créer maintenant
                 </button>
               </div>
-              <div className="hero-card">
+              <div className="hero-card home-card">
                 <div className="home-card-title">2. Ranger / Compléter</div>
                 <div className="small">
                   Chargez une tierlist créée et rangez les éléments. Ajoutez des
@@ -427,6 +480,16 @@ export default function App() {
           token={token}
           onRank={openRankWith}
           onView={openViewWith}
+          onCopy={copyTierlist}
+          onOpenProfile={openPublicProfile}
+        />
+      )}
+
+      {page === "admin" && me?.role === "admin" && (
+        <AdminDashboard
+          token={token}
+          onViewTierlist={openViewWith}
+          onEditTierlist={openEditWith}
           onOpenProfile={openPublicProfile}
         />
       )}
@@ -440,98 +503,161 @@ export default function App() {
               onOpenProfile={openPublicProfile}
               onRank={openRankWith}
               onView={openViewWith}
+              onCopy={copyTierlist}
             />
           ) : (
-            <div className="profile-shell">
-              <div className="gallery-section">
-                <div className="profile-header">
+            <div className="profile-dashboard">
+              <section className="profile-identity-card">
+                <label
+                  className="profile-avatar-picker"
+                  title="Changer la photo de profil"
+                >
                   <img
-                    src={me?.avatar || "https://placehold.co/96x96"}
+                    src={me?.avatar || "https://placehold.co/160x160"}
                     alt={me?.displayName || me?.userId}
-                    className="profile-avatar"
+                    className="profile-avatar-large"
                   />
+                  <span className="profile-camera-button" aria-hidden="true">
+                    📷
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) =>
+                      updateAvatarFromFile(event.target.files?.[0])
+                    }
+                    className="profile-avatar-input"
+                  />
+                </label>
+                <div className="profile-identity-copy">
+                  <span className="profile-kicker">Mon profil</span>
+                  <input
+                    className="profile-name-input"
+                    value={me?.displayName || ""}
+                    onChange={(event) =>
+                      updateProfile({ displayName: event.target.value })
+                    }
+                    disabled={profileLoading}
+                    aria-label="Nom affiché"
+                  />
+                  <span className="profile-handle">@{me?.userId}</span>
+                  <span className="profile-hint">
+                    Cliquez sur votre photo pour la modifier.
+                  </span>
+                </div>
+                {profileError && (
+                  <div className="auth-error profile-error">{profileError}</div>
+                )}
+              </section>
+
+              <section className="profile-network-card">
+                <div className="profile-section-heading">
                   <div>
-                    <h2>{me?.displayName || me?.userId}</h2>
-                    <p className="small">@{me?.userId}</p>
+                    <span className="profile-kicker">Réseau</span>
+                    <h2>Amis</h2>
                   </div>
+                  <span className="profile-count">
+                    {(me?.friends || []).length}
+                  </span>
                 </div>
 
-                <div className="profile-form">
-                  <label className="input-group">
-                    <span>Nom affiché</span>
-                    <input
-                      value={me?.displayName || ""}
-                      onChange={(event) =>
-                        updateProfile({ displayName: event.target.value })
-                      }
-                      disabled={profileLoading}
-                    />
-                  </label>
-                  <label className="input-group">
-                    <span>Avatar</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) =>
-                        updateAvatarFromFile(event.target.files?.[0])
-                      }
-                    />
-                  </label>
-                  {profileError && (
-                    <div className="auth-error">{profileError}</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="gallery-section profile-friends-section">
-                <div className="gallery-section-header">
-                  <div>
-                    <h3>Amis</h3>
-                    <span className="small">
-                      Cherchez des utilisateurs et ajoutez-les à votre réseau.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="profile-search">
+                <div className="profile-search profile-search-compact">
+                  <span className="profile-search-icon" aria-hidden="true">
+                    ⌕
+                  </span>
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Rechercher un utilisateur"
+                    aria-label="Rechercher un utilisateur"
                   />
-                  <div className="profile-search-results">
-                    {searchResults.map((user) => (
-                      <div className="profile-search-item" key={user.id}>
+                </div>
+                <div className="profile-search-results">
+                  {searchResults.map((user) => (
+                    <div className="profile-search-item" key={user.id}>
+                      <button
+                        className="profile-user-link"
+                        onClick={() => openPublicProfile(user.id)}
+                      >
+                        <img
+                          src={user.avatar || "https://placehold.co/40x40"}
+                          alt=""
+                          className="profile-result-avatar"
+                        />
+                        <span>
+                          <strong>{user.displayName || user.userId}</strong>
+                          <small>@{user.userId}</small>
+                        </span>
+                      </button>
+                      {friendIds.has(user.id) ? (
                         <button
-                          className="profile-user-link"
-                          onClick={() => openPublicProfile(user.id)}
+                          className="btn"
+                          onClick={() => removeFriend(user.id)}
                         >
-                          {user.displayName || user.userId}
+                          Retirer
                         </button>
-                        <span className="small">@{user.userId}</span>
-                        {friendIds.has(user.id) ? (
-                          <button
-                            className="btn"
-                            onClick={() => removeFriend(user.id)}
-                          >
-                            Retirer
-                          </button>
-                        ) : (
+                      ) : sentRequestIds.has(user.id) ? (
+                        <span className="profile-request-status">
+                          Demande envoyée
+                        </span>
+                      ) : receivedRequestIds.has(user.id) ? (
+                        <span className="profile-request-status">
+                          Répondez à sa demande
+                        </span>
+                      ) : (
+                        <button
+                          className="btn secondary"
+                          onClick={() => addFriend(user.id)}
+                        >
+                          Ajouter
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {(me?.friendRequests || []).length > 0 && (
+                  <div className="profile-requests">
+                    <div className="profile-subheading">Demandes reçues</div>
+                    {me.friendRequests.map((request) => (
+                      <div className="profile-request-item" key={request.id}>
+                        <img
+                          src={
+                            request.from?.avatar || "https://placehold.co/40x40"
+                          }
+                          alt=""
+                          className="profile-result-avatar"
+                        />
+                        <span>
+                          <strong>
+                            {request.from?.displayName || request.from?.userId}
+                          </strong>
+                          <small>veut rejoindre votre réseau</small>
+                        </span>
+                        <div className="profile-request-actions">
                           <button
                             className="btn secondary"
-                            onClick={() => addFriend(user.id)}
+                            onClick={() => acceptFriendRequest(request.id)}
                           >
-                            Ajouter
+                            Accepter
                           </button>
-                        )}
+                          <button
+                            className="btn"
+                            onClick={() => rejectFriendRequest(request.id)}
+                          >
+                            Refuser
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                )}
 
                 <div className="profile-friends">
                   {(me?.friends || []).length === 0 ? (
-                    <div className="small">Aucun ami pour le moment.</div>
+                    <div className="profile-empty-state">
+                      Votre réseau est encore vide.
+                    </div>
                   ) : (
                     (me?.friends || []).map((friend) => (
                       <button
@@ -540,16 +666,19 @@ export default function App() {
                         onClick={() => openPublicProfile(friend.id)}
                       >
                         <img
-                          src={friend.avatar || "https://placehold.co/32x32"}
+                          src={friend.avatar || "https://placehold.co/40x40"}
                           alt=""
                           className="profile-friend-avatar"
                         />
-                        {friend.displayName || friend.userId}
+                        <span>
+                          <strong>{friend.displayName || friend.userId}</strong>
+                          <small>@{friend.userId}</small>
+                        </span>
                       </button>
                     ))
                   )}
                 </div>
-              </div>
+              </section>
             </div>
           )}
         </div>

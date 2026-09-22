@@ -9,6 +9,7 @@ export default function UserProfileView({
   onOpenProfile,
   onRank,
   onView,
+  onCopy,
 }) {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -72,9 +73,11 @@ export default function UserProfileView({
                 }
                 onRank={onRank}
                 onView={onView}
+                onCopy={onCopy}
                 onOpenProfile={onOpenProfile}
                 showActions
                 showRank
+                showCopy
                 showEdit={false}
                 showDelete={false}
               />
@@ -98,6 +101,7 @@ export default function UserProfileView({
                   )
                 }
                 onRank={onRank}
+                onView={onView}
                 onOpenProfile={onOpenProfile}
                 showActions
                 showRank={false}

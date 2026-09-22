@@ -4,3 +4,14 @@
 .community-header {
   margin-bottom: 20px;
 }
+.community-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+}
+.community-empty {
+  margin: 0;
+  padding-top: 8px;
+}

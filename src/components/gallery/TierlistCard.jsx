@@ -24,11 +24,13 @@ export default function TierlistCard({
   onEdit,
   onRank,
   onView,
+  onCopy,
   onDelete,
   onOpenProfile,
   showActions = true,
   showRank = false,
   showView = false,
+  showCopy = false,
   showEdit = false,
   showDelete = false,
   showOwner = true,
@@ -84,7 +86,13 @@ export default function TierlistCard({
 
       {expanded && (
         <div className="gallery-card-details">
-          {tierlist?.description && <p>{tierlist.description}</p>}
+          <div className="gallery-card-description">
+            <span className="gallery-card-description-label">Description</span>
+            <p>
+              {tierlist?.description?.trim() ||
+                "Cette tierlist n'a pas encore de description."}
+            </p>
+          </div>
           {showActions && (
             <div className="gallery-card-actions">
               {showEdit && onEdit && (
@@ -98,6 +106,14 @@ export default function TierlistCard({
                   onClick={() => onView(tierlist)}
                 >
                   Voir
+                </button>
+              )}
+              {showCopy && onCopy && (
+                <button
+                  className="btn secondary"
+                  onClick={() => onCopy(tierlist)}
+                >
+                  Copier
                 </button>
               )}
               {showRank && onRank && (
