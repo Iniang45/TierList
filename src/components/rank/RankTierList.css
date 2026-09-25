@@ -55,6 +55,52 @@
   .rank-actions {
     flex-wrap: wrap;
   }
+
+  .ranking-page {
+    margin-top: 4px;
+  }
+
+  .ranking-page .rank-header {
+    gap: 14px;
+    margin-bottom: 14px;
+    border-radius: 18px;
+  }
+
+  .ranking-page .rank-actions .btn {
+    flex: 1 1 calc(50% - 8px);
+    min-height: 44px;
+  }
+
+  .ranking-page .rank-board {
+    padding: 10px;
+    border-radius: 18px;
+  }
+
+  .ranking-page .layout {
+    gap: 14px;
+  }
+
+  .ranking-page .tier {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+    min-height: 104px;
+  }
+
+  .ranking-page .tier-label {
+    min-height: 52px;
+    font-size: 15px;
+  }
+
+  .ranking-page .card {
+    width: 76px;
+    height: 76px;
+  }
+
+  .ranking-page .side-panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
 }
 .tier-spacing {
   margin-bottom: 16px;

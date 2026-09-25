@@ -10,6 +10,7 @@ export default function UserProfileView({
   onRank,
   onView,
   onCopy,
+  onBack, // <-- 1. Ajout de la prop onBack
 }) {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -42,6 +43,15 @@ export default function UserProfileView({
   return (
     <div className="public-profile-page">
       <div className="gallery-section public-profile-header">
+        {/* 2. Ajout du bouton de retour conditionnel */}
+        {onBack && (
+          <div style={{ marginBottom: "1rem" }}>
+            <button className="btn secondary" onClick={onBack}>
+              ← Retour
+            </button>
+          </div>
+        )}
+
         <div className="profile-header">
           <img
             src={profile.user?.avatar || "https://placehold.co/96x96"}
@@ -56,6 +66,7 @@ export default function UserProfileView({
       </div>
 
       <div className="gallery-sections">
+        {/* ... le reste de ton code reste exactement pareil ... */}
         <div className="gallery-section">
           <div className="gallery-section-header">
             <h3>Tierlists créées en public</h3>

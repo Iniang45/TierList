@@ -306,6 +306,14 @@ export default function RankTierList({
                           <div className="details-value">{item.text}</div>
                         </div>
                       )}
+                      {readOnly && item.explanation && (
+                        <div className="details-block">
+                          <div className="small details-label">Explication</div>
+                          <div className="details-value">
+                            {item.explanation}
+                          </div>
+                        </div>
+                      )}
                       {!readOnly && (
                         <div className="input-group">
                           <label>Pourquoi ce placement ?</label>
@@ -319,22 +327,23 @@ export default function RankTierList({
                           />
                         </div>
                       )}
-                      {!readOnly && (
-                        <button
-                          className="btn details-close"
-                          onClick={() => setExpandedItem(null)}
-                        >
-                          Fermer
-                        </button>
-                      )}
+
+                      <button
+                        className="btn details-close"
+                        onClick={() => setExpandedItem(null)}
+                      >
+                        Fermer
+                      </button>
                     </div>
                   ) : null;
                 })()}
               </>
             ) : (
               <div className="small">
-                Cliquez sur une image pour ajouter une explication de son
-                placement.
+                {/* Petit bonus UX : on adapte le texte selon le mode */}
+                {readOnly
+                  ? "Cliquez sur une image pour voir son explication."
+                  : "Cliquez sur une image pour ajouter une explication de son placement."}
               </div>
             )}
           </div>

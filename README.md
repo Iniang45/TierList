@@ -33,11 +33,16 @@ cluster :
 ```env
 MONGODB_URI=mongodb+srv://utilisateur:mot_de_passe@cluster.mongodb.net/?retryWrites=true&w=majority
 MONGODB_DB_NAME=tierlist_studio
+FRONTEND_URL=http://localhost:5173
 ```
 
 Dans MongoDB Atlas, ajoutez l'adresse IP de la machine de déploiement dans
 `Network Access` et créez un utilisateur de base de données dans `Database
 Access`. N'intégrez jamais l'URI complète contenant le mot de passe dans Git.
+
+`FRONTEND_URL` contrôle l'origine autorisée par le CORS. En production,
+remplacez-la par l'URL publique exacte du frontend, par exemple
+`https://mon-site.example`.
 
 Le fichier `server.js` :
 

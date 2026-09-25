@@ -32,6 +32,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [profileError, setProfileError] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const activeSection = page === "rank" ? "gallery" : page;
   const isAuthed = Boolean(token);
@@ -266,6 +267,29 @@ export default function App() {
     setPage("profile");
   }
 
+  function goToPage(nextPage) {
+    setMobileMenuOpen(false);
+    setPage(nextPage);
+  }
+
+  function startCreate() {
+    setTierlistToEdit(null);
+    setTemplateToRank(null);
+    setRankReadOnly(false);
+    goToPage("create");
+  }
+
+  const mobileNavigation = [
+    { page: "home", label: "Accueil", icon: "⌂" },
+    { page: "create", label: "Créer", icon: "+" },
+    { page: "gallery", label: "Mes tierlists", icon: "▦" },
+    { page: "community", label: "Communauté", icon: "◎" },
+    ...(me?.role === "admin"
+      ? [{ page: "admin", label: "Administration", icon: "◆" }]
+      : []),
+    ...(isAuthed ? [{ page: "profile", label: "Profil", icon: "◉" }] : []),
+  ];
+
   return (
     <div className="app">
       <div className="header">
@@ -278,7 +302,7 @@ export default function App() {
           <div className="nav">
             <button
               className={`btn ${activeSection === "home" ? "active" : ""}`}
-              onClick={() => setPage("home")}
+              onClick={() => goToPage("home")}
             >
               Accueil
             </button>
@@ -287,27 +311,27 @@ export default function App() {
               onClick={() => {
                 setTierlistToEdit(null);
                 setTemplateToRank(null);
-                setPage("create");
+                goToPage("create");
               }}
             >
               Créer
             </button>
             <button
               className={`btn ${activeSection === "gallery" ? "active" : ""}`}
-              onClick={() => setPage("gallery")}
+              onClick={() => goToPage("gallery")}
             >
               Mes tierlists
             </button>
             <button
               className={`btn ${activeSection === "community" ? "active" : ""}`}
-              onClick={() => setPage("community")}
+              onClick={() => goToPage("community")}
             >
               Communauté
             </button>
             {me?.role === "admin" && (
               <button
                 className={`btn ${activeSection === "admin" ? "active" : ""}`}
-                onClick={() => setPage("admin")}
+                onClick={() => goToPage("admin")}
               >
                 Admin
               </button>
@@ -316,7 +340,7 @@ export default function App() {
               className="btn"
               onClick={() => {
                 setPublicProfileId(me?.id || null);
-                setPage("profile");
+                goToPage("profile");
               }}
             >
               <span className="account-chip">
@@ -335,22 +359,92 @@ export default function App() {
           <div className="nav">
             <button
               className={`btn ${activeSection === "home" ? "active" : ""}`}
-              onClick={() => setPage("home")}
+              onClick={() => goToPage("home")}
             >
               Accueil
             </button>
-            <button className="btn" onClick={() => setPage("auth")}>
+            <button className="btn" onClick={() => goToPage("auth")}>
               Se connecter
             </button>
             <button
               className={`btn ${activeSection === "community" ? "active" : ""}`}
-              onClick={() => setPage("community")}
+              onClick={() => goToPage("community")}
             >
               Communauté
             </button>
           </div>
         )}
+        <button
+          className="mobile-menu-trigger"
+          type="button"
+          aria-label="Ouvrir le menu"
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen(true)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
       </div>
+
+      {mobileMenuOpen && (
+        <div
+          className="mobile-menu-layer"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <aside
+            className="mobile-menu-drawer"
+            aria-label="Navigation mobile"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mobile-menu-header">
+              <div>
+                <span className="mobile-menu-kicker">Navigation</span>
+                <strong>TierList Studio</strong>
+              </div>
+              <button
+                className="mobile-menu-close"
+                type="button"
+                aria-label="Fermer le menu"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <nav className="mobile-menu-links">
+              {mobileNavigation.map((item) => (
+                <button
+                  key={item.page}
+                  className={`mobile-menu-link ${activeSection === item.page ? "active" : ""}`}
+                  onClick={() => {
+                    if (item.page === "create") startCreate();
+                    else goToPage(item.page);
+                  }}
+                >
+                  <span className="mobile-menu-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                  <span className="mobile-menu-arrow" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              ))}
+              {isAuthed && (
+                <button
+                  className="mobile-menu-link mobile-menu-logout"
+                  onClick={logout}
+                >
+                  <span className="mobile-menu-icon" aria-hidden="true">
+                    ↪
+                  </span>
+                  <span>Déconnexion</span>
+                </button>
+              )}
+            </nav>
+          </aside>
+        </div>
+      )}
 
       {page === "auth" && !isAuthed && (
         <AuthScreen onLogin={handleLogin} onRegister={handleRegister} />
@@ -372,7 +466,7 @@ export default function App() {
                   setTierlistToEdit(null);
                   setTemplateToRank(null);
                   setRankReadOnly(false);
-                  setPage("create");
+                  startCreate();
                 }}
               >
                 Créer une tierlist
@@ -501,6 +595,7 @@ export default function App() {
               token={token}
               userId={publicProfileId}
               onOpenProfile={openPublicProfile}
+              onBack={() => setPublicProfileId(me?.id)}
               onRank={openRankWith}
               onView={openViewWith}
               onCopy={copyTierlist}

@@ -208,3 +208,67 @@
 .image-modal-close {
   width: 100%;
 }
+
+@media (max-width: 640px) {
+  .create-page {
+    margin-top: 4px;
+  }
+
+  .create-page .editor-heading {
+    padding: 4px 2px 12px;
+  }
+
+  .create-page .editor-heading h2 {
+    font-size: 28px;
+  }
+
+  .create-page .editor-card,
+  .create-page .create-side .side-panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .create-page .create-layout {
+    gap: 14px;
+  }
+
+  .create-page .cover-preview {
+    height: 150px;
+  }
+
+  .create-page .tier-editor-row {
+    grid-template-columns: minmax(0, 1fr) 58px;
+  }
+
+  .create-page .tier-delete-button {
+    grid-column: 1 / -1;
+  }
+
+  .create-page .tier-color-input {
+    height: 42px;
+  }
+
+  .create-page .save-buttons {
+    flex-direction: column;
+  }
+
+  .create-page .save-buttons .btn {
+    width: 100%;
+  }
+
+  .create-page .image-list-item {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 8px;
+  }
+
+  .create-page .image-list-preview {
+    grid-row: span 2;
+    height: 72px;
+    margin: 0;
+  }
+
+  .create-page .image-list-actions {
+    grid-column: 2;
+  }
+}

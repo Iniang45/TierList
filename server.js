@@ -6,6 +6,7 @@ require("dotenv").config();
 const { MongoClient } = require("mongodb");
 
 const PORT = Number(process.env.API_PORT || 3001);
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const DB_PATH = path.join(__dirname, "data", "db.json");
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "tierlist_studio";
@@ -131,9 +132,10 @@ async function writeDb(db) {
 function json(res, statusCode, body) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": FRONTEND_URL,
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+    Vary: "Origin",
   });
   res.end(JSON.stringify(body));
 }
@@ -361,9 +363,10 @@ const openApi = {
 async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": FRONTEND_URL,
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+      Vary: "Origin",
     });
     res.end();
     return;
