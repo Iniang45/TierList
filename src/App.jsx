@@ -294,8 +294,9 @@ export default function App() {
     <div className="app">
       <div className="header">
         <div>
-          <h1>TierList Studio</h1>
-          <div className="small">Création locale et communauté connectée</div>
+          <h1>RapidTier</h1>
+
+          <div className="small">Mon carburant est ma hate pour tierMaker</div>
         </div>
 
         {isAuthed ? (
@@ -489,7 +490,7 @@ export default function App() {
         <div className="home-page home-dashboard">
           <div className="hero-panel home-panel-auth home-auth-hero">
             <h2>
-              Bienvenue {me?.displayName || me?.userId || "sur TierList Studio"}
+              Bienvenue {me?.displayName || me?.userId || "sur RapidTier"}
             </h2>
             <p className="small hero-copy">
               Créez, publiez et explorez des tierlists. Votre compte donne accès
