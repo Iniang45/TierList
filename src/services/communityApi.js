@@ -23,6 +23,8 @@ export const communityApi = {
   login: (body) => request("/auth/login", { method: "POST", body }),
   me: (token) => request("/me", { token }),
   updateMe: (token, body) => request("/me", { token, method: "PATCH", body }),
+  updatePassword: (token, body) =>
+    request("/me/password", { token, method: "PATCH", body }),
   searchUsers: (q, token) =>
     request(`/users/search?q=${encodeURIComponent(q || "")}`, { token }),
   userProfile: (userId, token) =>
@@ -45,6 +47,19 @@ export const communityApi = {
   deleteTierlist: (token, id) =>
     request(`/tierlists/${id}`, { token, method: "DELETE" }),
   getTierlist: (id, token) => request(`/tierlists/${id}`, { token }),
+  getComments: (tierlistId, token) =>
+    request(`/tierlists/${tierlistId}/comments`, { token }),
+  addComment: (tierlistId, token, text) =>
+    request(`/tierlists/${tierlistId}/comments`, {
+      token,
+      method: "POST",
+      body: { text },
+    }),
+  deleteComment: (tierlistId, commentId, token) =>
+    request(`/tierlists/${tierlistId}/comments/${commentId}`, {
+      token,
+      method: "DELETE",
+    }),
   adminUsers: (token) => request("/admin/users", { token }),
   adminTierlists: (token) => request("/admin/tierlists", { token }),
   adminDeleteTierlist: (token, id) =>

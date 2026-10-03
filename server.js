@@ -31,6 +31,7 @@ function readLegacyDb() {
     users: Array.isArray(db.users) ? db.users : [],
     tierlists: Array.isArray(db.tierlists) ? db.tierlists : [],
     friendRequests: Array.isArray(db.friendRequests) ? db.friendRequests : [],
+    comments: Array.isArray(db.comments) ? db.comments : [],
   };
 }
 
@@ -49,6 +50,7 @@ async function connectDatabase() {
   const users = mongoDb.collection("users");
   const tierlists = mongoDb.collection("tierlists");
   const friendRequests = mongoDb.collection("friendRequests");
+  const comments = mongoDb.collection("comments");
   await Promise.all([
     users.createIndex({ id: 1 }, { unique: true }),
     users.createIndex({ userId: 1 }, { unique: true }),
@@ -56,12 +58,15 @@ async function connectDatabase() {
     tierlists.createIndex({ ownerId: 1 }),
     friendRequests.createIndex({ id: 1 }, { unique: true }),
     friendRequests.createIndex({ toUserId: 1 }),
+    comments.createIndex({ id: 1 }, { unique: true }),
+    comments.createIndex({ tierlistId: 1, createdAt: 1 }),
   ]);
 
   const hasData =
     (await users.countDocuments()) > 0 ||
     (await tierlists.countDocuments()) > 0 ||
-    (await friendRequests.countDocuments()) > 0;
+    (await friendRequests.countDocuments()) > 0 ||
+    (await comments.countDocuments()) > 0;
   if (!hasData && process.env.MONGODB_MIGRATE_FILE !== "false") {
     const legacyDb = readLegacyDb();
     if (legacyDb) {
@@ -72,6 +77,8 @@ async function connectDatabase() {
       if (legacyDb.friendRequests.length) {
         await friendRequests.insertMany(legacyDb.friendRequests);
       }
+      if (legacyDb.comments.length)
+        await comments.insertMany(legacyDb.comments);
       console.log("Données locales migrées vers MongoDB Atlas.");
     }
   }
@@ -95,7 +102,44 @@ async function connectDatabase() {
     );
   }
 
+  await ensureAdminFriendships(
+    users,
+    admin || (await users.findOne({ userId: ADMIN_USER_ID })),
+  );
+
   return mongoDb;
+}
+
+async function ensureAdminFriendships(usersCollection, admin) {
+  if (!admin) return;
+  const users = await usersCollection.find({}).toArray();
+  const adminFriends = new Set(admin.friends || []);
+  const operations = [];
+
+  for (const user of users) {
+    if (user.id === admin.id) continue;
+    const userFriends = new Set(user.friends || []);
+    if (!userFriends.has(admin.id)) {
+      userFriends.add(admin.id);
+      operations.push({
+        updateOne: {
+          filter: { _id: user._id },
+          update: { $set: { friends: [...userFriends] } },
+        },
+      });
+    }
+    adminFriends.add(user.id);
+  }
+
+  if (adminFriends.size !== (admin.friends || []).length) {
+    operations.push({
+      updateOne: {
+        filter: { _id: admin._id },
+        update: { $set: { friends: [...adminFriends] } },
+      },
+    });
+  }
+  if (operations.length) await usersCollection.bulkWrite(operations);
 }
 
 async function syncCollection(collectionName, documents) {
@@ -115,12 +159,17 @@ async function syncCollection(collectionName, documents) {
 
 async function readDb() {
   await connectDatabase();
-  const [users, tierlists, friendRequests] = await Promise.all([
+  const [users, tierlists, friendRequests, comments] = await Promise.all([
     await mongoDb.collection("users").find({}).toArray(),
     await mongoDb.collection("tierlists").find({}).toArray(),
     await mongoDb.collection("friendRequests").find({}).toArray(),
+    await mongoDb
+      .collection("comments")
+      .find({})
+      .sort({ createdAt: 1 })
+      .toArray(),
   ]);
-  return { users, tierlists, friendRequests };
+  return { users, tierlists, friendRequests, comments };
 }
 
 async function writeDb(db) {
@@ -129,6 +178,7 @@ async function writeDb(db) {
     await syncCollection("users", db.users),
     await syncCollection("tierlists", db.tierlists),
     await syncCollection("friendRequests", db.friendRequests),
+    await syncCollection("comments", db.comments),
   ]);
 }
 
@@ -260,6 +310,21 @@ function sanitizeTierlist(tierlist, users) {
           userId: owner.userId,
           displayName: owner.displayName,
           avatar: owner.avatar,
+        }
+      : null,
+  };
+}
+
+function sanitizeComment(comment, users) {
+  const author = users.find((user) => user.id === comment.authorId);
+  return {
+    ...comment,
+    author: author
+      ? {
+          id: author.id,
+          userId: author.userId,
+          displayName: author.displayName,
+          avatar: author.avatar,
         }
       : null,
   };
@@ -421,6 +486,11 @@ async function handler(req, res) {
     };
 
     db.users.push(user);
+    const admin = db.users.find((entry) => entry.userId === ADMIN_USER_ID);
+    if (admin && user.id !== admin.id) {
+      user.friends.push(admin.id);
+      admin.friends = [...new Set([...(admin.friends || []), user.id])];
+    }
     await writeDb(db);
 
     const token = createToken();
@@ -550,6 +620,35 @@ async function handler(req, res) {
     return;
   }
 
+  if (url.pathname === "/api/me/password" && req.method === "PATCH") {
+    const user = getAuthUser(req, db);
+    if (!user) {
+      json(res, 401, { error: "Non authentifié" });
+      return;
+    }
+    const body = await readBody(req);
+    const currentPassword = String(body.currentPassword || "");
+    const newPassword = String(body.newPassword || "");
+    if (!currentPassword || !newPassword) {
+      json(res, 400, { error: "Ancien et nouveau mot de passe requis" });
+      return;
+    }
+    if (user.passwordHash !== hashPassword(currentPassword)) {
+      json(res, 403, { error: "Ancien mot de passe incorrect" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      json(res, 400, {
+        error: "Le nouveau mot de passe doit contenir au moins 6 caractères",
+      });
+      return;
+    }
+    user.passwordHash = hashPassword(newPassword);
+    await writeDb(db);
+    json(res, 200, { user: sanitizeUser(user, db.users, db) });
+    return;
+  }
+
   if (url.pathname === "/api/friends" && req.method === "POST") {
     const user = getAuthUser(req, db);
     if (!user) {
@@ -660,6 +759,11 @@ async function handler(req, res) {
       return;
     }
     const friendId = url.pathname.split("/").pop();
+    const admin = db.users.find((entry) => entry.userId === ADMIN_USER_ID);
+    if (admin && friendId === admin.id) {
+      json(res, 400, { error: "L'administrateur reste dans votre réseau" });
+      return;
+    }
     user.friends = user.friends.filter((id) => id !== friendId);
     await writeDb(db);
     json(res, 200, { user: sanitizeUser(user, db.users) });
@@ -776,6 +880,97 @@ async function handler(req, res) {
     return;
   }
 
+  const commentMatch = url.pathname.match(
+    /^\/api\/tierlists\/([^/]+)\/comments$/,
+  );
+  if (commentMatch && req.method === "GET") {
+    const user = getAuthUser(req, db);
+    const tierlist = db.tierlists.find((entry) => entry.id === commentMatch[1]);
+    if (!tierlist || !visibleToUser(tierlist, user)) {
+      json(res, 404, { error: "Tierlist introuvable" });
+      return;
+    }
+    const comments = db.comments
+      .filter((comment) => comment.tierlistId === tierlist.id)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .map((comment) => sanitizeComment(comment, db.users));
+    json(res, 200, { comments });
+    return;
+  }
+
+  if (commentMatch && req.method === "POST") {
+    const user = getAuthUser(req, db);
+    if (!user) {
+      json(res, 401, { error: "Connectez-vous pour commenter" });
+      return;
+    }
+    const tierlist = db.tierlists.find((entry) => entry.id === commentMatch[1]);
+    if (!tierlist || !visibleToUser(tierlist, user)) {
+      json(res, 404, { error: "Tierlist introuvable" });
+      return;
+    }
+    if (tierlist.type !== "ranking") {
+      json(res, 400, {
+        error: "Les commentaires sont disponibles sur les rankings",
+      });
+      return;
+    }
+    const body = await readBody(req);
+    const text = String(body.text || "").trim();
+    if (!text) {
+      json(res, 400, { error: "Le commentaire ne peut pas être vide" });
+      return;
+    }
+    if (text.length > 1000) {
+      json(res, 400, { error: "Le commentaire est limité à 1000 caractères" });
+      return;
+    }
+    const comment = {
+      id: createId("comment"),
+      tierlistId: tierlist.id,
+      authorId: user.id,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    db.comments.push(comment);
+    await writeDb(db);
+    json(res, 201, { comment: sanitizeComment(comment, db.users) });
+    return;
+  }
+
+  const commentDeleteMatch = url.pathname.match(
+    /^\/api\/tierlists\/([^/]+)\/comments\/([^/]+)$/,
+  );
+  if (commentDeleteMatch && req.method === "DELETE") {
+    const user = getAuthUser(req, db);
+    if (!user) {
+      json(res, 401, { error: "Non authentifié" });
+      return;
+    }
+    const tierlist = db.tierlists.find(
+      (entry) => entry.id === commentDeleteMatch[1],
+    );
+    const commentIndex = db.comments.findIndex(
+      (comment) =>
+        comment.id === commentDeleteMatch[2] &&
+        comment.tierlistId === commentDeleteMatch[1],
+    );
+    if (!tierlist || commentIndex === -1) {
+      json(res, 404, { error: "Commentaire introuvable" });
+      return;
+    }
+    if (tierlist.ownerId !== user.id && user.role !== "admin") {
+      json(res, 403, {
+        error: "Seul le créateur ou l'admin peut supprimer ce commentaire",
+      });
+      return;
+    }
+    db.comments.splice(commentIndex, 1);
+    await writeDb(db);
+    json(res, 200, { ok: true });
+    return;
+  }
+
   if (url.pathname.startsWith("/api/tierlists/") && req.method === "GET") {
     const id = url.pathname.split("/").pop();
     const user = getAuthUser(req, db);
@@ -848,6 +1043,7 @@ async function handler(req, res) {
 
   if (url.pathname === "/api/public-feed" && req.method === "GET") {
     const user = getAuthUser(req, db);
+    const admin = db.users.find((entry) => entry.userId === ADMIN_USER_ID);
     const friendIds = new Set(user?.friends || []);
     const visible = db.tierlists.filter((tierlist) => {
       if (tierlist.visibility !== "public" || user?.id === tierlist.ownerId) {
@@ -858,7 +1054,10 @@ async function handler(req, res) {
         return true;
       }
 
-      return Boolean(user && friendIds.has(tierlist.ownerId));
+      return Boolean(
+        tierlist.ownerId === admin?.id ||
+        (user && friendIds.has(tierlist.ownerId)),
+      );
     });
     const tierlists = visible.map((tierlist) =>
       sanitizeTierlist(tierlist, db.users),

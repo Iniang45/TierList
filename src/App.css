@@ -180,6 +180,47 @@
   padding: 24px;
 }
 
+.friend-feedback {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 11px 13px;
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.friend-feedback.error {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.friend-feedback > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: currentColor;
+  color: #fff;
+  font-size: 12px;
+}
+
+.friend-feedback button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .profile-section-heading {
   display: flex;
   align-items: center;
@@ -309,12 +350,45 @@
   display: flex;
   align-items: center;
   gap: 9px;
+  padding: 6px 8px 6px 10px;
+  text-align: left;
+}
+
+.profile-friend-main {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
   text-align: left;
 }
 
 .profile-friend-chip span {
   display: grid;
   gap: 2px;
+}
+
+.profile-friend-remove {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.profile-friend-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
 }
 
 .profile-empty-state {
@@ -324,6 +398,46 @@
   border-radius: 14px;
   color: var(--muted);
   text-align: center;
+}
+
+.profile-password-card {
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 14px 36px rgba(30, 41, 59, 0.08);
+}
+
+.profile-password-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profile-password-form input {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  font: inherit;
+}
+
+.profile-password-form .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.profile-password-message {
+  margin-top: 12px;
+}
+
+.profile-success {
+  padding: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
 }
 
 @media (max-width: 640px) {
@@ -346,6 +460,18 @@
 
   .profile-network-card {
     padding: 18px;
+  }
+
+  .profile-password-card {
+    padding: 18px;
+  }
+
+  .profile-password-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-password-form .btn {
+    width: 100%;
   }
 }
 .profile-form input,
@@ -597,8 +723,18 @@
   gap: 18px;
 }
 
+@media (min-width: 761px) {
+  .home-guest-page,
+  .home-dashboard {
+    min-height: calc(100vh - 170px);
+    align-content: center;
+  }
+}
+
 .home-auth-hero {
+  width: 100%;
   max-width: none;
+  justify-self: center;
   padding: 34px 38px;
   border: 1px solid var(--border);
   box-shadow: 0 16px 38px rgba(30, 41, 59, 0.1);
@@ -632,6 +768,13 @@
 }
 .home-panel-auth {
   max-width: 760px;
+}
+
+@media (min-width: 761px) {
+  .home-panel-auth {
+    margin-right: auto;
+    margin-left: auto;
+  }
 }
 .hero-copy {
   font-size: 15px;

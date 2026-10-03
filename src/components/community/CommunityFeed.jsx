@@ -32,18 +32,16 @@ export default function CommunityFeed({
 
   return (
     <div className="community-page">
-      <div className="gallery-section community-header">
-        <div className="gallery-section-header">
-          <div>
-            <h3>Communauté</h3>
-            <span className="small">
-              Tierlists publiques créées par d'autres personnes
-            </span>
-          </div>
-          <button className="btn" onClick={loadFeed}>
-            Rafraîchir
-          </button>
-        </div>
+      <div className="community-toolbar">
+        <span className="small">Découvrez les tierlists publiques</span>
+        <button
+          className="community-refresh-button"
+          onClick={loadFeed}
+          title="Rafraîchir la communauté"
+          aria-label="Rafraîchir la communauté"
+        >
+          ↻
+        </button>
         {error && <div className="auth-error">{error}</div>}
       </div>
 

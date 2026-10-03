@@ -32,7 +32,16 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [profileError, setProfileError] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmation: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [friendFeedback, setFriendFeedback] = useState(null);
 
   const activeSection = page === "rank" ? "gallery" : page;
   const isAuthed = Boolean(token);
@@ -194,27 +203,91 @@ export default function App() {
     reader.readAsDataURL(file);
   }
 
+  async function updatePassword(event) {
+    event.preventDefault();
+    setPasswordError("");
+    setPasswordMessage("");
+    if (passwordForm.newPassword !== passwordForm.confirmation) {
+      setPasswordError("Les deux nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await communityApi.updatePassword(token, {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmation: "",
+      });
+      setPasswordMessage("Mot de passe modifié.");
+    } catch (error) {
+      setPasswordError(
+        error.message || "Impossible de modifier le mot de passe",
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   async function addFriend(friendId) {
-    await communityApi.addFriend(token, friendId);
-    const payload = await communityApi.me(token);
-    setMe(payload.user);
+    try {
+      await communityApi.addFriend(token, friendId);
+      const payload = await communityApi.me(token);
+      setMe(payload.user);
+      setFriendFeedback({ type: "success", text: "Demande d'ami envoyée." });
+    } catch (error) {
+      setFriendFeedback({
+        type: "error",
+        text: error.message || "Impossible d'envoyer la demande.",
+      });
+    }
   }
 
   async function acceptFriendRequest(requestId) {
-    const payload = await communityApi.acceptFriendRequest(token, requestId);
-    setMe(payload.user);
+    try {
+      const payload = await communityApi.acceptFriendRequest(token, requestId);
+      setMe(payload.user);
+      setFriendFeedback({ type: "success", text: "Demande acceptée." });
+    } catch (error) {
+      setFriendFeedback({
+        type: "error",
+        text: error.message || "Impossible d'accepter la demande.",
+      });
+    }
   }
 
   async function rejectFriendRequest(requestId) {
-    await communityApi.rejectFriendRequest(token, requestId);
-    const payload = await communityApi.me(token);
-    setMe(payload.user);
+    try {
+      await communityApi.rejectFriendRequest(token, requestId);
+      const payload = await communityApi.me(token);
+      setMe(payload.user);
+      setFriendFeedback({ type: "success", text: "Demande refusée." });
+    } catch (error) {
+      setFriendFeedback({
+        type: "error",
+        text: error.message || "Impossible de refuser la demande.",
+      });
+    }
   }
 
   async function removeFriend(friendId) {
-    await communityApi.removeFriend(token, friendId);
-    const payload = await communityApi.me(token);
-    setMe(payload.user);
+    try {
+      await communityApi.removeFriend(token, friendId);
+      const payload = await communityApi.me(token);
+      setMe(payload.user);
+      setFriendFeedback({
+        type: "success",
+        text: "Ami retiré de votre réseau.",
+      });
+    } catch (error) {
+      setFriendFeedback({
+        type: "error",
+        text: error.message || "Impossible de retirer cet ami.",
+      });
+    }
   }
 
   function openRankWith(template) {
@@ -545,6 +618,10 @@ export default function App() {
           token={token}
           template={templateToRank}
           readOnly={rankReadOnly}
+          canModerateComments={Boolean(
+            me?.role === "admin" ||
+            (templateToRank?.ownerId && templateToRank.ownerId === me?.id),
+          )}
           initialData={
             templateToRank?.type === "ranking" ? templateToRank : null
           }
@@ -647,6 +724,19 @@ export default function App() {
               </section>
 
               <section className="profile-network-card">
+                {friendFeedback && (
+                  <div className={`friend-feedback ${friendFeedback.type}`}>
+                    <span>{friendFeedback.type === "success" ? "✓" : "!"}</span>
+                    {friendFeedback.text}
+                    <button
+                      type="button"
+                      aria-label="Fermer"
+                      onClick={() => setFriendFeedback(null)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <div className="profile-section-heading">
                   <div>
                     <span className="profile-kicker">Réseau</span>
@@ -756,24 +846,113 @@ export default function App() {
                     </div>
                   ) : (
                     (me?.friends || []).map((friend) => (
-                      <button
-                        key={friend.id}
-                        className="profile-friend-chip"
-                        onClick={() => openPublicProfile(friend.id)}
-                      >
-                        <img
-                          src={friend.avatar || "https://placehold.co/40x40"}
-                          alt=""
-                          className="profile-friend-avatar"
-                        />
-                        <span>
-                          <strong>{friend.displayName || friend.userId}</strong>
-                          <small>@{friend.userId}</small>
-                        </span>
-                      </button>
+                      <div key={friend.id} className="profile-friend-chip">
+                        <button
+                          type="button"
+                          className="profile-friend-main"
+                          onClick={() => openPublicProfile(friend.id)}
+                        >
+                          <img
+                            src={friend.avatar || "https://placehold.co/40x40"}
+                            alt=""
+                            className="profile-friend-avatar"
+                          />
+                          <span>
+                            <strong>
+                              {friend.displayName || friend.userId}
+                            </strong>
+                            <small>@{friend.userId}</small>
+                          </span>
+                        </button>
+                        {friend.role !== "admin" &&
+                          friend.userId !== "ibra" && (
+                            <button
+                              type="button"
+                              className="profile-friend-remove"
+                              onClick={() => removeFriend(friend.id)}
+                              aria-label={`Retirer ${friend.displayName || friend.userId}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                      </div>
                     ))
                   )}
                 </div>
+              </section>
+
+              <section className="profile-password-card">
+                <div className="profile-section-heading">
+                  <div>
+                    <span className="profile-kicker">Sécurité</span>
+                    <h2>Mot de passe</h2>
+                  </div>
+                </div>
+                <form
+                  className="profile-password-form"
+                  onSubmit={updatePassword}
+                >
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        currentPassword: event.target.value,
+                      }))
+                    }
+                    placeholder="Mot de passe actuel"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        newPassword: event.target.value,
+                      }))
+                    }
+                    placeholder="Nouveau mot de passe"
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                  />
+                  <input
+                    type="password"
+                    value={passwordForm.confirmation}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        confirmation: event.target.value,
+                      }))
+                    }
+                    placeholder="Confirmer le nouveau mot de passe"
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                  />
+                  <button
+                    className="btn primary"
+                    type="submit"
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading
+                      ? "Modification..."
+                      : "Modifier le mot de passe"}
+                  </button>
+                </form>
+                {passwordError && (
+                  <div className="auth-error profile-password-message">
+                    {passwordError}
+                  </div>
+                )}
+                {passwordMessage && (
+                  <div className="profile-success profile-password-message">
+                    {passwordMessage}
+                  </div>
+                )}
               </section>
             </div>
           )}

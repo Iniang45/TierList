@@ -1,8 +1,33 @@
 .community-page {
   margin-top: 20px;
 }
-.community-header {
-  margin-bottom: 20px;
+.community-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 36px;
+  margin-bottom: 14px;
+}
+.community-refresh-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-size: 23px;
+  line-height: 1;
+  transition:
+    transform 0.2s,
+    background 0.2s;
+}
+.community-refresh-button:hover {
+  background: rgba(99, 102, 241, 0.08);
+  transform: rotate(25deg);
 }
 .community-section {
   margin-bottom: 20px;
