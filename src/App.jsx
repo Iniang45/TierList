@@ -63,6 +63,20 @@ export default function App() {
   );
 
   useEffect(() => {
+    function handleAuthExpired() {
+      localStorage.removeItem(TOKEN_KEY);
+      setToken("");
+      setMe(null);
+      setMyTierlists(loadTemporaryTierlists());
+      setPage("auth");
+    }
+
+    window.addEventListener("tierlist-auth-expired", handleAuthExpired);
+    return () =>
+      window.removeEventListener("tierlist-auth-expired", handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
     if (!token) {
       setMe(null);
       setMyTierlists(loadTemporaryTierlists());

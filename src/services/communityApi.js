@@ -13,6 +13,9 @@ async function request(path, { token, method = "GET", body } = {}) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && token) {
+      window.dispatchEvent(new Event("tierlist-auth-expired"));
+    }
     throw new Error(payload.error || "Requête API impossible");
   }
   return payload;

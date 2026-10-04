@@ -1,11 +1,12 @@
-# TierList Studio
+# RapidTier
 
 Éditeur coloré pour créer des tierlists, avec drag & drop intuitif et export en image.
 
-**Workflow en deux étapes :**
+**Workflow principal :**
 
 1. **Créer** → Définissez les tiers (S, A, B, …), ajoutez des images avec descriptions textuelles
-2. **Ranger** → Chargez une tierlist et glissez les images dans les tiers, justifiez chaque placement
+2. **Ranger** → Chargez une tierlist et glissez les images dans les tiers, ou choisissez directement leur tier
+3. **Commenter** → Consultez et ajoutez des commentaires sur les rankings visibles
 
 ## Installation & Lancement
 
@@ -36,6 +37,9 @@ MONGODB_DB_NAME=tierlist_studio
 FRONTEND_URL=http://localhost:5173
 ```
 
+Le serveur charge automatiquement les variables du fichier `.env` avec
+`dotenv`. Ne committez jamais ce fichier.
+
 Dans MongoDB Atlas, ajoutez l'adresse IP de la machine de déploiement dans
 `Network Access` et créez un utilisateur de base de données dans `Database
 Access`. N'intégrez jamais l'URI complète contenant le mot de passe dans Git.
@@ -47,10 +51,21 @@ remplacez-la par l'URL publique exacte du frontend, par exemple
 Le fichier `server.js` :
 
 - crée le serveur HTTP et route les requêtes selon leur méthode et leur URL ;
-- lit et écrit les collections `users`, `tierlists` et `friendRequests` dans MongoDB Atlas ;
+- lit et écrit les collections `users`, `tierlists`, `friendRequests` et `comments` dans MongoDB Atlas ;
 - hash les mots de passe avec SHA-256 avant de les stocker ;
 - crée des tokens de session en mémoire et vérifie l'en-tête `Authorization` ;
 - renvoie du JSON et active le CORS pour le frontend Vite.
+
+### CORS
+
+Le CORS est contrôlé par `FRONTEND_URL`. En local :
+
+```env
+FRONTEND_URL=http://localhost:5173
+```
+
+En production, indiquez l'URL exacte du frontend déployé. L'API ne permet pas
+automatiquement toutes les origines.
 
 Au premier démarrage sur une base MongoDB vide, le serveur migre automatiquement
 `data/db.json` si le fichier existe. Cette migration peut être désactivée avec
@@ -60,16 +75,28 @@ source de vérité ; `data/db.json` n'est plus utilisé pour les nouvelles
 redémarrage de l'API demande une nouvelle connexion. Les tierlists invitées
 restent temporaires dans le `sessionStorage` du navigateur.
 
+## Permissions
+
+- Un invité peut consulter les tierlists publiques, les rankings publics et les profils publics.
+- Un compte connecté peut créer des tierlists, sauvegarder des rankings et commenter les rankings auxquels il a accès.
+- Les commentaires peuvent être supprimés par le propriétaire du ranking ou par l'administrateur.
+- Le compte administrateur utilise l'identifiant `ibra`. Ses droits sont vérifiés côté API avec le rôle `admin`.
+- Les demandes d'amis nécessitent l'acceptation du destinataire.
+
 ## Fonctionnalités
 
 - ✨ Design coloré avec séparation claire tier/éléments
 - 🖼️ Support images illimitées avec texte affiché
 - 🎯 Drag & drop fluide entre tiers
 - 💬 Ajoutez des explications à chaque placement
+- 💬 Ajoutez des commentaires sur les tierlists rangées visibles
+- 👥 Envoyez, acceptez, refusez et supprimez des demandes d'amis
+- 🛡️ Compte administrateur avec accès global aux profils et tierlists
 - ⬇️ Export PNG de votre tierlist
-- 💾 Sauvegarde locale (localStorage)
+- 👤 Mode invité avec sauvegarde temporaire dans `sessionStorage`
+- 🔐 Sauvegarde des comptes et tierlists dans MongoDB Atlas
 - 📱 Interface responsive
 
 ## Tech
 
-React + Vite + Node.js HTTP + MongoDB Atlas + html2canvas
+React + Vite + Node.js HTTP + MongoDB Atlas + html2canvas + dotenv
