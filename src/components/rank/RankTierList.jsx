@@ -343,7 +343,9 @@ export default function RankTierList({
               <div className="unranked-panel-heading">
                 <div>
                   <div className="details-title">Éléments à ranger</div>
-                  <div className="small">Glissez-les vers un tier</div>
+                  <div className="small">
+                    Glissez-les vers un tier ou cliquer dessus
+                  </div>
                 </div>
                 <span className="unranked-count">
                   {ranking.items.filter((item) => !item.tierId).length}
