@@ -14,10 +14,23 @@ const DB_PATH = path.join(__dirname, "data", "db.json");
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "tierlist_studio";
 const TOKENS = new Map();
-const ADMIN_USER_ID = "ibra";
-const ADMIN_PASSWORD = "galakrond";
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 let mongoClient;
 let mongoDb;
+
+function sanitize(obj) {
+  if (obj && typeof obj === "object") {
+    for (const key in obj) {
+      if (key.startsWith("$") || key.includes(".")) {
+        delete obj[key]; // Supprime les opérateurs NoSQL malveillants
+      } else {
+        sanitize(obj[key]);
+      }
+    }
+  }
+  return obj;
+}
 
 function readLegacyDb() {
   const dir = path.dirname(DB_PATH);
@@ -213,7 +226,7 @@ function readBody(req) {
         return;
       }
       try {
-        resolve(JSON.parse(data));
+        resolve(sanitize(JSON.parse(data)));
       } catch (error) {
         reject(error);
       }
