@@ -61,7 +61,23 @@ export default function App() {
       new Set((me?.friendRequests || []).map((request) => request.from?.id)),
     [me],
   );
+  useEffect(() => {
+    if (window.location.hash !== `#${page}`) {
+      window.history.pushState({ page }, "", `#${page}`);
+    }
+  }, [page]);
 
+  // 2. Gère le bouton Retour / Avant du navigateur
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const targetPage =
+        event.state?.page || window.location.hash.replace("#", "") || "home";
+      setPage(targetPage);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   useEffect(() => {
     function handleAuthExpired() {
       localStorage.removeItem(TOKEN_KEY);
@@ -584,31 +600,27 @@ export default function App() {
               au profil, aux amis et au flux public.
             </p>
             <div className="home-cards">
-              <div className="hero-card home-card">
-                <div className="home-card-title">1. Créer une TierList</div>
-                <div className="small">
-                  Définissez les tiers, ajoutez des images et préparez une base
-                  publiable.
-                </div>
-                <button
-                  onClick={() => setPage("create")}
-                  className="btn primary home-card-action"
-                >
-                  Créer maintenant
-                </button>
+              <div
+                className="hero-card home-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setPage("create")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setPage("create");
+                }}
+              >
+                <div className="home-card-title">Créer une TierList</div>
               </div>
-              <div className="hero-card home-card">
-                <div className="home-card-title">2. Ranger / Compléter</div>
-                <div className="small">
-                  Chargez une tierlist créée et rangez les éléments. Ajoutez des
-                  explications à chaque placement.
-                </div>
-                <button
-                  onClick={() => setPage("gallery")}
-                  className="btn secondary home-card-action"
-                >
-                  Voir mes tierlists
-                </button>
+              <div
+                className="hero-card home-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setPage("gallery")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setPage("gallery");
+                }}
+              >
+                <div className="home-card-title">Voir mes Tierlists</div>
               </div>
             </div>
           </div>
