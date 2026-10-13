@@ -5,7 +5,7 @@ const crypto = require("crypto");
 require("dotenv").config();
 const { MongoClient } = require("mongodb");
 
-const PORT = Number(process.env.API_PORT || 3001);
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
 // CORS requires an exact origin; remove any trailing slash from the Render env value.
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173")
   .trim()
