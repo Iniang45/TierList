@@ -1109,12 +1109,18 @@ const server = http.createServer((req, res) => {
 });
 
 async function startServer() {
-  await connectDatabase();
-  server.listen(PORT, () => {
-    console.log(
-      `TierList API running on http://localhost:${PORT} with MongoDB ${MONGODB_DB_NAME}`,
-    );
+  // 1. Ouvrir le serveur HTTP immédiatement pour que Render valide le déploiement
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`TierList API running on port ${PORT}`);
   });
+
+  // 2. Connecter MongoDB sans bloquer l'ouverture du port
+  try {
+    await connectDatabase();
+    console.log(`MongoDB ${MONGODB_DB_NAME} connecté avec succès !`);
+  } catch (err) {
+    console.error("Erreur de connexion MongoDB :", err.message);
+  }
 }
 
 startServer().catch((error) => {
