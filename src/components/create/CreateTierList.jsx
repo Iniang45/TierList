@@ -32,6 +32,32 @@ function readImageFile(file, onLoad) {
   reader.onload = (event) => onLoad(event.target.result);
   reader.readAsDataURL(file);
 }
+async function uploadToCloudinary(fileOrBase64) {
+  // Si c'est déjà une URL HTTP (ex: image non modifiée), on ne ré-uploade pas
+  if (
+    !fileOrBase64 ||
+    (typeof fileOrBase64 === "string" && fileOrBase64.startsWith("http"))
+  ) {
+    return fileOrBase64;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileOrBase64);
+  formData.append("upload_preset", "rapidTierPreset"); // Ton preset Cloudinary
+
+  const res = await fetch(
+    "https://api.cloudinary.com/v1_1/nm2imvp2/image/upload",
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  if (!res.ok)
+    throw new Error("Erreur lors de l'envoi de l'image sur Cloudinary");
+  const data = await res.json();
+  return data.secure_url;
+}
 
 export default function CreateTierList({
   token,
@@ -160,21 +186,18 @@ export default function CreateTierList({
     });
 
     try {
-      const optimizedImages = await Promise.all(
+      // 1. Upload des images de la tierlist vers Cloudinary
+      const uploadedImages = await Promise.all(
         images.map(async (image) => ({
           ...image,
-          src: await optimizeImageDataUrl(image.src),
+          src: await uploadToCloudinary(image.src),
         })),
       );
 
-      const optimizedCoverImage = coverImage
+      const uploadedCoverImage = coverImage
         ? {
             ...coverImage,
-            src: await optimizeImageDataUrl(coverImage.src, {
-              maxWidth: 1600,
-              maxHeight: 900,
-              quality: 0.8,
-            }),
+            src: await uploadToCloudinary(coverImage.src),
           }
         : null;
 
@@ -182,11 +205,11 @@ export default function CreateTierList({
         type: "template",
         name,
         description,
-        coverImage: optimizedCoverImage,
+        coverImage: uploadedCoverImage,
         visibility,
         tiers,
-        images: optimizedImages,
-        items: optimizedImages.map((image) => ({
+        images: uploadedImages,
+        items: uploadedImages.map((image) => ({
           ...image,
           explanation: image.explanation || "",
           tierId: null,
@@ -218,6 +241,7 @@ export default function CreateTierList({
         } else {
           // Create new tierlist
           console.log("➕ Création nouvelle tierlist...");
+
           const response = await communityApi.createTierlist(
             token,
             templateData,
