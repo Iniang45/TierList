@@ -667,7 +667,9 @@ export default function App() {
               await communityApi.deleteTierlist(token, id);
             }
             deleteTemporaryTierlist(id);
-            setMyTierlists(loadTemporaryTierlists());
+            setMyTierlists((prev) =>
+              prev.filter((t) => (t.id || t._id) !== id),
+            );
           }}
           onOpenProfile={openPublicProfile}
         />
