@@ -7,6 +7,7 @@ import CommunityFeed from "./components/community/CommunityFeed";
 import UserProfileView from "./components/profile/UserProfileView";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import { communityApi } from "./services/communityApi";
+import brandIcon from "../assets/favicon.svg";
 import {
   deleteTemporaryTierlist,
   loadTemporaryTierlists,
@@ -404,7 +405,7 @@ export default function App() {
     <div className="app">
       <div className="header">
         <div className="brand">
-          <img className="brand-icon" src="/assets/favicon.svg" alt="" />
+          <img className="brand-icon" src={brandIcon} alt="" />
           <div>
             <h1>RapidTier</h1>
 
@@ -477,7 +478,10 @@ export default function App() {
             >
               Accueil
             </button>
-            <button className="btn" onClick={() => goToPage("auth")}>
+            <button
+              className={`btn ${activeSection === "auth" ? "active" : ""}`}
+              onClick={() => goToPage("auth")}
+            >
               Se connecter
             </button>
             <button
