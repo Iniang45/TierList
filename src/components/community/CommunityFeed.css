@@ -30,11 +30,37 @@
   transform: rotate(25deg);
 }
 .community-section {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 20px;
   padding: 16px;
   background: var(--card);
   border: 2px solid var(--border);
   border-radius: 16px;
+}
+
+.community-section::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  content: "";
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.community-created-section::before {
+  background-image: url("/assets/BG_images/nolimits.jpg");
+}
+
+.community-ranked-section::before {
+  background-image: url("/assets/BG_images/techan.jpg");
+}
+
+.community-section > * {
+  position: relative;
+  z-index: 1;
 }
 .community-empty {
   margin: 0;

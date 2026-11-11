@@ -45,7 +45,7 @@ export default function CommunityFeed({
         {error && <div className="auth-error">{error}</div>}
       </div>
 
-      <section className="community-section">
+      <section className="community-section community-created-section">
         <div className="gallery-section-header">
           <div>
             <h3>Tierlists créées</h3>
@@ -80,7 +80,7 @@ export default function CommunityFeed({
         </div>
       </section>
 
-      <section className="community-section">
+      <section className="community-section community-ranked-section">
         <div className="gallery-section-header">
           <div>
             <h3>Tierlists rangées par mes amis</h3>

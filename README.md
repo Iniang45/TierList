@@ -51,9 +51,9 @@ remplacez-la par l'URL publique exacte du frontend, par exemple
 Le fichier `server.js` :
 
 - crée le serveur HTTP et route les requêtes selon leur méthode et leur URL ;
-- lit et écrit les collections `users`, `tierlists`, `friendRequests` et `comments` dans MongoDB Atlas ;
+- lit et écrit les collections `users`, `tierlists`, `friendRequests`, `comments` et `sessions` dans MongoDB Atlas ;
 - hash les mots de passe avec SHA-256 avant de les stocker ;
-- crée des tokens de session en mémoire et vérifie l'en-tête `Authorization` ;
+- crée des sessions persistantes dans MongoDB et vérifie l'en-tête `Authorization` ;
 - renvoie du JSON et active le CORS pour le frontend Vite.
 
 ### CORS
@@ -67,13 +67,28 @@ FRONTEND_URL=http://localhost:5173
 En production, indiquez l'URL exacte du frontend déployé. L'API ne permet pas
 automatiquement toutes les origines.
 
+Les sessions sont conservées dans la collection MongoDB `sessions`. Elles
+expirent après 30 jours d'inactivité ; chaque requête authentifiée renouvelle
+leur expiration pour 30 jours. Un redémarrage ou un redéploiement de l'API ne
+déconnecte donc pas les utilisateurs dont la session est encore valide. La
+déconnexion supprime la session, et un changement de mot de passe invalide les
+sessions existantes.
+
 Au premier démarrage sur une base MongoDB vide, le serveur migre automatiquement
 `data/db.json` si le fichier existe. Cette migration peut être désactivée avec
 `MONGODB_MIGRATE_FILE=false`. Après la migration, MongoDB Atlas devient la
 source de vérité ; `data/db.json` n'est plus utilisé pour les nouvelles
-écritures. Les tokens de session restent en mémoire dans `server.js`, donc un
-redémarrage de l'API demande une nouvelle connexion. Les tierlists invitées
+écritures. Les tierlists invitées
 restent temporaires dans le `sessionStorage` du navigateur.
+
+### Sessions MongoDB
+
+Au démarrage, l'API crée automatiquement les index nécessaires sur `sessions`,
+dont un index TTL sur `expiresAt`. Aucune collection ou configuration manuelle
+n'est nécessaire dans MongoDB Atlas. Après le premier déploiement de cette
+version, les utilisateurs devront se reconnecter une fois afin d'obtenir un
+nouveau token persistant ; les connexions suivantes survivront aux redémarrages
+de Render.
 
 ## Permissions
 

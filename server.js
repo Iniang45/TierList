@@ -13,7 +13,7 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173")
 const DB_PATH = path.join(__dirname, "data", "db.json");
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "tierlist_studio";
-const TOKENS = new Map();
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 let mongoClient;
@@ -64,6 +64,7 @@ async function connectDatabase() {
   const tierlists = mongoDb.collection("tierlists");
   const friendRequests = mongoDb.collection("friendRequests");
   const comments = mongoDb.collection("comments");
+  const sessions = mongoDb.collection("sessions");
   await Promise.all([
     users.createIndex({ id: 1 }, { unique: true }),
     users.createIndex({ userId: 1 }, { unique: true }),
@@ -73,6 +74,8 @@ async function connectDatabase() {
     friendRequests.createIndex({ toUserId: 1 }),
     comments.createIndex({ id: 1 }, { unique: true }),
     comments.createIndex({ tierlistId: 1, createdAt: 1 }),
+    sessions.createIndex({ tokenHash: 1 }, { unique: true }),
+    sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 
   const hasData =
@@ -244,23 +247,56 @@ function createId(prefix) {
 }
 
 function createToken() {
-  return crypto.randomUUID();
+  return crypto.randomBytes(32).toString("hex");
 }
 
-function getAuthUser(req, db) {
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function getBearerToken(req) {
   const authorization = req.headers.authorization || "";
-  const token = authorization.startsWith("Bearer ")
+  return authorization.startsWith("Bearer ")
     ? authorization.slice(7)
     : null;
-  const userId = token ? TOKENS.get(token) : null;
-  if (!userId) {
-    return null;
-  }
-  return db.users.find((user) => user.id === userId) || null;
 }
 
-function requireAdmin(req, db) {
-  const user = getAuthUser(req, db);
+async function createSession(userId) {
+  const token = createToken();
+  const now = new Date();
+  await mongoDb.collection("sessions").insertOne({
+    tokenHash: hashToken(token),
+    userId,
+    createdAt: now,
+    lastUsedAt: now,
+    expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+  });
+  return token;
+}
+
+async function getAuthUser(req, db) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return null;
+  }
+
+  const now = new Date();
+  const session = await mongoDb.collection("sessions").findOne({
+    tokenHash: hashToken(token),
+    expiresAt: { $gt: now },
+  });
+  if (!session) return null;
+
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+  await mongoDb.collection("sessions").updateOne(
+    { _id: session._id },
+    { $set: { lastUsedAt: now, expiresAt } },
+  );
+  return db.users.find((user) => user.id === session.userId) || null;
+}
+
+async function requireAdmin(req, db) {
+  const user = await getAuthUser(req, db);
   return user?.role === "admin" ? user : null;
 }
 
@@ -506,8 +542,7 @@ async function handler(req, res) {
     }
     await writeDb(db);
 
-    const token = createToken();
-    TOKENS.set(token, user.id);
+    const token = await createSession(user.id);
     json(res, 201, { token, user: sanitizeUser(user, db.users) });
     return;
   }
@@ -524,14 +559,24 @@ async function handler(req, res) {
       return;
     }
 
-    const token = createToken();
-    TOKENS.set(token, user.id);
+    const token = await createSession(user.id);
     json(res, 200, { token, user: sanitizeUser(user, db.users) });
     return;
   }
 
+  if (url.pathname === "/api/auth/logout" && req.method === "POST") {
+    const token = getBearerToken(req);
+    if (token) {
+      await mongoDb.collection("sessions").deleteOne({
+        tokenHash: hashToken(token),
+      });
+    }
+    json(res, 200, { ok: true });
+    return;
+  }
+
   if (url.pathname === "/api/me" && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -541,7 +586,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/admin/users" && req.method === "GET") {
-    const admin = requireAdmin(req, db);
+    const admin = await requireAdmin(req, db);
     if (!admin) {
       json(res, 403, { error: "Droits administrateur requis" });
       return;
@@ -553,7 +598,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/admin/tierlists" && req.method === "GET") {
-    const admin = requireAdmin(req, db);
+    const admin = await requireAdmin(req, db);
     if (!admin) {
       json(res, 403, { error: "Droits administrateur requis" });
       return;
@@ -570,7 +615,7 @@ async function handler(req, res) {
     url.pathname.startsWith("/api/admin/tierlists/") &&
     req.method === "DELETE"
   ) {
-    const admin = requireAdmin(req, db);
+    const admin = await requireAdmin(req, db);
     if (!admin) {
       json(res, 403, { error: "Droits administrateur requis" });
       return;
@@ -588,7 +633,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname.startsWith("/api/admin/users/") && req.method === "DELETE") {
-    const admin = requireAdmin(req, db);
+    const admin = await requireAdmin(req, db);
     if (!admin) {
       json(res, 403, { error: "Droits administrateur requis" });
       return;
@@ -619,7 +664,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/me" && req.method === "PATCH") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -634,7 +679,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/me/password" && req.method === "PATCH") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -658,12 +703,13 @@ async function handler(req, res) {
     }
     user.passwordHash = hashPassword(newPassword);
     await writeDb(db);
+    await mongoDb.collection("sessions").deleteMany({ userId: user.id });
     json(res, 200, { user: sanitizeUser(user, db.users, db) });
     return;
   }
 
   if (url.pathname === "/api/friends" && req.method === "POST") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -712,7 +758,7 @@ async function handler(req, res) {
     url.pathname.startsWith("/api/friends/requests/") &&
     req.method === "POST"
   ) {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -744,7 +790,7 @@ async function handler(req, res) {
     url.pathname.startsWith("/api/friends/requests/") &&
     req.method === "DELETE"
   ) {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -766,7 +812,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname.startsWith("/api/friends/") && req.method === "DELETE") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -827,7 +873,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/tierlists" && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     const tierlists = db.tierlists
       .filter((tierlist) => visibleToUser(tierlist, user))
       .map((tierlist) => sanitizeTierlist(tierlist, db.users));
@@ -836,7 +882,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/tierlists/public" && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     const tierlists = db.tierlists
       .filter(
         (tierlist) =>
@@ -850,7 +896,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/tierlists/me" && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -863,7 +909,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/tierlists" && req.method === "POST") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -897,7 +943,7 @@ async function handler(req, res) {
     /^\/api\/tierlists\/([^/]+)\/comments$/,
   );
   if (commentMatch && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     const tierlist = db.tierlists.find((entry) => entry.id === commentMatch[1]);
     if (!tierlist || !visibleToUser(tierlist, user)) {
       json(res, 404, { error: "Tierlist introuvable" });
@@ -912,7 +958,7 @@ async function handler(req, res) {
   }
 
   if (commentMatch && req.method === "POST") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Connectez-vous pour commenter" });
       return;
@@ -955,7 +1001,7 @@ async function handler(req, res) {
     /^\/api\/tierlists\/([^/]+)\/comments\/([^/]+)$/,
   );
   if (commentDeleteMatch && req.method === "DELETE") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -986,7 +1032,7 @@ async function handler(req, res) {
 
   if (url.pathname.startsWith("/api/tierlists/") && req.method === "GET") {
     const id = url.pathname.split("/").pop();
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     const tierlist = db.tierlists.find((entry) => entry.id === id);
     if (!tierlist || !visibleToUser(tierlist, user)) {
       json(res, 404, { error: "Tierlist introuvable" });
@@ -997,7 +1043,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname.startsWith("/api/tierlists/") && req.method === "PATCH") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -1033,7 +1079,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname.startsWith("/api/tierlists/") && req.method === "DELETE") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     if (!user) {
       json(res, 401, { error: "Non authentifié" });
       return;
@@ -1055,7 +1101,7 @@ async function handler(req, res) {
   }
 
   if (url.pathname === "/api/public-feed" && req.method === "GET") {
-    const user = getAuthUser(req, db);
+    const user = await getAuthUser(req, db);
     const admin = db.users.find((entry) => entry.userId === ADMIN_USER_ID);
     const friendIds = new Set(user?.friends || []);
     const visible = db.tierlists.filter((tierlist) => {

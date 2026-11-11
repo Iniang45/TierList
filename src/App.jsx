@@ -180,7 +180,14 @@ export default function App() {
     setPage("home");
   }
 
-  function logout() {
+  async function logout() {
+    if (token) {
+      try {
+        await communityApi.logout(token);
+      } catch (error) {
+        console.error("La session serveur n'a pas pu être révoquée.", error);
+      }
+    }
     localStorage.removeItem(TOKEN_KEY);
     setToken("");
     setMe(null);
@@ -396,10 +403,13 @@ export default function App() {
   return (
     <div className="app">
       <div className="header">
-        <div>
-          <h1>RapidTier</h1>
+        <div className="brand">
+          <img className="brand-icon" src="/assets/favicon.svg" alt="" />
+          <div>
+            <h1>RapidTier</h1>
 
-          <div className="small">Mon carburant est ma hate pour tierMaker</div>
+            <div className="small">Mon carburant est ma hate pour tierMaker</div>
+          </div>
         </div>
 
         {isAuthed ? (
@@ -469,6 +479,12 @@ export default function App() {
             </button>
             <button className="btn" onClick={() => goToPage("auth")}>
               Se connecter
+            </button>
+            <button
+              className={`btn ${activeSection === "gallery" ? "active" : ""}`}
+              onClick={() => goToPage("gallery")}
+            >
+              Mes tierlists
             </button>
             <button
               className={`btn ${activeSection === "community" ? "active" : ""}`}
@@ -557,15 +573,9 @@ export default function App() {
       {page === "home" && !isAuthed && (
         <div className="home-page home-guest-page">
           <div className="hero-panel home-hero-panel">
-            <h2>Créez et rangez vos tierlists immédiatement</h2>
-            <p className="small hero-copy">
-              Commencez sans compte. Vos listes sont conservées dans ce
-              navigateur. Connectez-vous seulement pour les partager avec la
-              communauté et retrouver vos données sur ce serveur.
-            </p>
-            <div className="create-actions home-actions">
+            <div className="home-actions">
               <button
-                className="btn primary"
+                className="home-action-card home-action-create"
                 onClick={() => {
                   setTierlistToEdit(null);
                   setTemplateToRank(null);
@@ -573,16 +583,28 @@ export default function App() {
                   startCreate();
                 }}
               >
-                Créer une tierlist
+                <span className="home-action-content">
+                  <strong>Créer une tierlist</strong>
+                  <span>Construisez votre classement à partir de zéro.</span>
+                </span>
               </button>
               <button
-                className="btn secondary"
+                className="home-action-card home-action-gallery"
                 onClick={() => setPage("gallery")}
               >
-                Voir mes tierlists
+                <span className="home-action-content">
+                  <strong>Voir mes tierlists</strong>
+                  <span>Retrouvez les listes enregistrées dans ce navigateur.</span>
+                </span>
               </button>
-              <button className="btn primary" onClick={() => setPage("auth")}>
-                Rejoindre la communauté
+              <button
+                className="home-action-card home-action-community"
+                onClick={() => setPage("auth")}
+              >
+                <span className="home-action-content">
+                  <strong>Rejoindre la communauté</strong>
+                  <span>Partagez vos tierlists et retrouvez-les partout.</span>
+                </span>
               </button>
             </div>
           </div>
@@ -601,7 +623,7 @@ export default function App() {
             </p>
             <div className="home-cards">
               <div
-                className="hero-card home-card"
+                className="hero-card home-card home-card-create"
                 role="button"
                 tabIndex={0}
                 onClick={() => setPage("create")}
@@ -610,9 +632,10 @@ export default function App() {
                 }}
               >
                 <div className="home-card-title">Créer une TierList</div>
+                <span className="home-card-description">Lancez un nouveau classement</span>
               </div>
               <div
-                className="hero-card home-card"
+                className="hero-card home-card home-card-gallery"
                 role="button"
                 tabIndex={0}
                 onClick={() => setPage("gallery")}
@@ -621,6 +644,7 @@ export default function App() {
                 }}
               >
                 <div className="home-card-title">Voir mes Tierlists</div>
+                <span className="home-card-description">Gérez vos listes enregistrées</span>
               </div>
             </div>
           </div>

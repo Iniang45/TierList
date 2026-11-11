@@ -24,6 +24,7 @@ async function request(path, { token, method = "GET", body } = {}) {
 export const communityApi = {
   register: (body) => request("/auth/register", { method: "POST", body }),
   login: (body) => request("/auth/login", { method: "POST", body }),
+  logout: (token) => request("/auth/logout", { token, method: "POST" }),
   me: (token) => request("/me", { token }),
   updateMe: (token, body) => request("/me", { token, method: "PATCH", body }),
   updatePassword: (token, body) =>
